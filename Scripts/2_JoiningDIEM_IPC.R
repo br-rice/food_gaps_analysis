@@ -184,7 +184,7 @@ indicators_checkingOutliers <- DIEM_hh_combined %>%
   summarize(
     min = min(value, na.rm = TRUE),
     q01 = quantile(value, 0.01, na.rm = TRUE),
-    q01 = quantile(value, 0.02, na.rm = TRUE),
+    q02 = quantile(value, 0.02, na.rm = TRUE),
     median = median(value, na.rm = TRUE),
     q97 = quantile(value, 0.97, na.rm = TRUE),
     q98 = quantile(value, 0.98, na.rm = TRUE),
@@ -230,7 +230,7 @@ distributionAfterCleaning <- DIEM_hh_combined %>%
   summarize(
     min = min(value, na.rm = TRUE),
     q01 = quantile(value, 0.01, na.rm = TRUE),
-    q01 = quantile(value, 0.02, na.rm = TRUE),
+    q02 = quantile(value, 0.02, na.rm = TRUE),
     median = median(value, na.rm = TRUE),
     q97 = quantile(value, 0.97, na.rm = TRUE),
     q98 = quantile(value, 0.98, na.rm = TRUE),
