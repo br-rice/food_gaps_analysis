@@ -4179,8 +4179,8 @@ IPCcalculations <- IPCdataImported %>%
   
   # then do total kcal gap ...............................................................
     mutate(
-         gap_inKcal_byPhase_acrossPopulation_upper = population_inPhase * kcal_per_person_per_day_upper,
-         gap_inKcal_byPhase_acrossPopulation_lower = population_inPhase * kcal_per_person_per_day_lower
+         gap_inKcal_byPhase_acrossPopulation_upper = population_inPhase * calDef_amt_upper,
+         gap_inKcal_byPhase_acrossPopulation_lower = population_inPhase * calDef_amt_lower
          ) %>%
   #sum across phases
   group_by(country_title) %>% 
