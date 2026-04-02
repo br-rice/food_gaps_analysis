@@ -3268,7 +3268,7 @@ million <- 1000000
 gaps_Table_1 <- IPCdata_forIndicatorGaps %>%
   mutate(
     cost_annual_millionsUSD_usingFCSgaps = population*fgt1_FCS *costPerWFPrationPerYear_USD/million,
-    cost_annual_millionsUSD_usingRCSIgaps = population*fgt1_RCSI *costPerWFPrationPerYear_USD/million,
+    cost_annual_millionsUSD_usingRCSIgaps = population*fgt1_rcsi *costPerWFPrationPerYear_USD/million,
     cost_annual_millionsUSD_usingHDDSgaps = population*fgt1_hdds *costPerWFPrationPerYear_USD/million,
     cost_annual_millionsUSD_usingHHSgaps = population*fgt1_hhs *costPerWFPrationPerYear_USD/million
 
@@ -3312,7 +3312,7 @@ write.xlsx(gaps_Table_fcs, file.path(finalTablesFolder, "Table14_FCS_cost_by_cou
 # now on to the RCSI table------------------------------------------------------------------
 gaps_Table_rcsi <- gaps_Table_1 %>%
   mutate(
-    byPhaseValue = paste0("Pop: ", population, " | RCSI gap: ", fgt1_RCSI, " | Cost annual mill USD: ", round(cost_annual_millionsUSD_usingRCSIgaps, 1))
+    byPhaseValue = paste0("Pop: ", population, " | RCSI gap: ", fgt1_rcsi, " | Cost annual mill USD: ", round(cost_annual_millionsUSD_usingRCSIgaps, 1))
   ) %>%
   
   select(country_name, year, ipcphase, byPhaseValue, total_cost_annual_millionsUSD_usingRCSIgaps) %>%
