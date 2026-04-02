@@ -45,6 +45,8 @@ options(digits = 3)
 dataFolder <- "C:/Users/BRICE/IFPRI Dropbox/Brendan Rice/DIEM_IPC_analysis/Data"
 outputFolder <- "C:/Users/BRICE/IFPRI Dropbox/Brendan Rice/DIEM_IPC_analysis/Output"
 outputVizInOutputFolder <- "C:/Users/BRICE/IFPRI Dropbox/Brendan Rice/DIEM_IPC_analysis/Output/PlotsTablesForPaper"
+finalTablesFolder <- "C:/Users/BRICE/IFPRI Dropbox/Brendan Rice/DIEM_IPC_analysis/Output/PlotsTablesForPaper_final"
+if (!dir.exists(finalTablesFolder)) dir.create(finalTablesFolder, recursive = TRUE)
 
 knitr::opts_chunk$set(echo = FALSE)
 
@@ -84,122 +86,6 @@ DIEM_FoodSecurity_HHPost2022 <- readRDS(file.path(dataFolder, "DIEM_hhpost2022An
 IPCDIEM_hh_imported <- readRDS(file.path(dataFolder, "IPC_DIEM_hh_joinedAndClean.rds"))
 IPCDIEM_hh <- IPCDIEM_hh_imported
 
-```
-
-# create excel file for all tables
-```{r createexcel, echo = FALSE,message = FALSE, warning = FALSE}
-excelFile_allResults_path <- file.path(outputVizInOutputFolder, "allresults_2025_11_12.xlsx")
-
-# Load workbook if it exists, otherwise create a new one
-if (file.exists(excelFile_allResults_path)) {
-    wb_excelFile_allResults <- loadWorkbook(excelFile_allResults_path)
-} else {
-    wb_excelFile_allResults <- createWorkbook()
-}
-
-```
-
-## make function for saving in this file
-
-```{r function_excel, echo = FALSE,message = FALSE, warning = FALSE}
-
-add_table_with_title <- function(
-    wb,
-    df,
-    sheet_name,
-    title,
-    start_row_title = 1,
-    start_row_table = 3,
-    startRow = NULL,    # NEW optional argument (row override)
-    startCol = 1        # NEW optional argument (column offset)
-) {
-
-  # --- Backward compatibility: override row settings only if startRow is provided ---
-  if (!is.null(startRow)) {
-    start_row_title <- startRow
-    start_row_table <- startRow + 2   # table starts 2 rows below title
-  }
-
-  # Create sheet if it doesn't exist
-  if (!(sheet_name %in% names(wb))) {
-    addWorksheet(wb, sheet_name)
-  }
-
-  # --- Write title ---
-  writeData(
-    wb,
-    sheet = sheet_name,
-    x = title,
-    startCol = startCol,
-    startRow = start_row_title
-  )
-
-  # Title style
-  title_style <- createStyle(
-    textDecoration = "bold",
-    halign = "left",
-    valign = "center",
-    fontSize = 14
-  )
-  addStyle(
-    wb,
-    sheet = sheet_name,
-    style = title_style,
-    rows = start_row_title,
-    cols = startCol,
-    gridExpand = TRUE
-  )
-
-  # --- Write dataframe ---
-  writeData(
-    wb,
-    sheet = sheet_name,
-    x = df,
-    startCol = startCol,
-    startRow = start_row_table,
-    colNames = TRUE,
-    rowNames = FALSE
-  )
-
-  # Header style
-  header_style <- createStyle(
-    textDecoration = "bold",
-    halign = "left",
-    valign = "center",
-    wrapText = TRUE
-  )
-  addStyle(
-    wb,
-    sheet = sheet_name,
-    style = header_style,
-    rows = start_row_table,
-    cols = startCol:(startCol + ncol(df) - 1),
-    gridExpand = TRUE
-  )
-
-  # Body style
-  body_style <- createStyle(
-    halign = "left"
-  )
-  addStyle(
-    wb,
-    sheet = sheet_name,
-    style = body_style,
-    rows = (start_row_table + 1):(start_row_table + nrow(df)),
-    cols = startCol:(startCol + ncol(df) - 1),
-    gridExpand = TRUE
-  )
-
-  # Column widths
-  setColWidths(
-    wb,
-    sheet = sheet_name,
-    cols = startCol:(startCol + ncol(df) - 1),
-    widths = 15
-  )
-
-  return(wb)
-}
 ```
 
 ## Import DIEM aggregated, IPC, and DIEM hh pre 2023
@@ -272,16 +158,9 @@ describingIPC_DIEM <- IPCDIEM_hh %>%
 del <- describingIPC_DIEM %>%
   count(area_overall_phase, name = "n_analyses") 
 
-# write_xlsx(del, file.path(outputVizInOutputFolder, "descriptives_table1_matched_districts_by_phase.xlsx"))  
+# write_xlsx(del, file.path(outputVizInOutputFolder, "descriptives_table1_matched_districts_by_phase.xlsx"))
 
-wb_excelFile_allResults <- add_table_with_title(
-  wb = wb_excelFile_allResults,
-  df =  del,
-  sheet_name = "DescribingMatchedData",
-  title = "Count of matched areas"#,
- # startCol = ncol(indicatorGapsByPhase_fcs) +2
-)
-saveWorkbook(wb_excelFile_allResults, excelFile_allResults_path, overwrite = TRUE)
+write.xlsx(del, file.path(finalTablesFolder, "Table6_matched_areas_by_phase.xlsx"), overwrite = TRUE)
 
 del <- describingIPC_DIEM %>%
   group_by(adm0_name) %>%
@@ -296,16 +175,9 @@ del <- describingIPC_DIEM %>%
     mutate(across(everything(), ~replace_na(., 0)))
 
 
-# write_xlsx(del, file.path(outputVizInOutputFolder, "descriptives_table2_matched_districts_by_phase.xlsx"))  
+# write_xlsx(del, file.path(outputVizInOutputFolder, "descriptives_table2_matched_districts_by_phase.xlsx"))
 
-wb_excelFile_allResults <- add_table_with_title(
-  wb = wb_excelFile_allResults,
-  df =  del,
-  sheet_name = "DescribingMatchedData",
-  title = "Count of matched areas by country/phase",
-  startCol = 4
-)
-saveWorkbook(wb_excelFile_allResults, excelFile_allResults_path, overwrite = TRUE)
+write.xlsx(del, file.path(finalTablesFolder, "Table8_matched_areas_by_country.xlsx"), overwrite = TRUE)
 
 # by time
 del <- describingIPC_DIEM %>%
@@ -318,16 +190,9 @@ del <- describingIPC_DIEM %>%
          IPC4 = `4`) %>%
   relocate(IPC1, .before = IPC2)
 
-# write_xlsx(del, file.path(outputVizInOutputFolder, "descriptives_table3_matched_districts_by_phase.xlsx")) 
+# write_xlsx(del, file.path(outputVizInOutputFolder, "descriptives_table3_matched_districts_by_phase.xlsx"))
 
-wb_excelFile_allResults <- add_table_with_title(
-  wb = wb_excelFile_allResults,
-  df =  del,
-  sheet_name = "DescribingMatchedData",
-  title = "Count of matched areas over time",
-  startCol = 10
-)
-saveWorkbook(wb_excelFile_allResults, excelFile_allResults_path, overwrite = TRUE)
+write.xlsx(del, file.path(finalTablesFolder, "Table7_time_coverage.xlsx"), overwrite = TRUE)
 
 ```
 
@@ -1713,20 +1578,7 @@ toShow %>%
 
   
 
-write.xlsx(toShow, 
-           file.path(outputVizInOutputFolder, "table_indicatorMeansnormalized_byphase.xlsx"), 
-           overwrite = TRUE) 
-
-# export to excel final file..............................................
-wb_excelFile_allResults <- add_table_with_title(
-  wb = wb_excelFile_allResults,
-  df = toShow,
-  sheet_name = "Indic_ph_normalized",
-  title = "Indicator means (normalized values from hh-level data) summarized - among districts matched to IPC phases"
-)
-
-# Save workbook once at the end
-saveWorkbook(wb_excelFile_allResults, excelFile_allResults_path, overwrite = TRUE)
+write.xlsx(toShow, file.path(finalTablesFolder, "Table11_indicator_means_by_phase.xlsx"), overwrite = TRUE)
 
 
 
@@ -1756,93 +1608,11 @@ cor_spearman%>%
   print()
 
 
-# export to excel final file..............................................
-wb_excelFile_allResults <- add_table_with_title(
-  wb = wb_excelFile_allResults,
-  df = cor_spearman,
-  sheet_name = "cor_hh",
-  title = "Spearman correlation - all observations - DIEM HH"
-)
-
-# Save workbook once at the end
-saveWorkbook(wb_excelFile_allResults, excelFile_allResults_path, overwrite = TRUE)
-
-
 #export to its own excel file.............................
 
+tableForPaper<- cor_spearman
 
-tableForPaper<- cor_spearman 
-
-# export to excel
-# Define path
-excel_file <- file.path(outputVizInOutputFolder, "table_correlations_hh.xlsx")
-
-# Create workbook and worksheet
-wb <- createWorkbook()
-addWorksheet(wb, "Base table")
-
-# Write plain data
-writeData(
-  wb,
-  sheet = "Base table",
-  x = tableForPaper,
-  startCol = 1,
-  startRow = 1,
-  colNames = TRUE,
-  rowNames = FALSE
-)
-
-# Header style: bold, centered, wrapped
-header_style <- createStyle(
-  textDecoration = "bold",
-  halign = "center",
-  valign = "center",
-  wrapText = TRUE,
-  fontSize = 11
-)
-addStyle(
-  wb,
-  sheet = "Base table",
-  style = header_style,
-  rows = 1,
-  cols = 1:ncol(tableForPaper),
-  gridExpand = TRUE
-)
-
-# Body style: center-align
-body_style <- createStyle(
-  halign = "center",
-  valign = "center"
-)
-addStyle(
-  wb,
-  sheet = "Base table",
-  style = body_style,
-  rows = 2:(nrow(tableForPaper) + 1),
-  cols = 1:ncol(tableForPaper),
-  gridExpand = TRUE
-)
-
-# 🔲 Border style: thin border around all cells (including headers)
-border_style <- createStyle(
-  border = "TopBottomLeftRight",
-  borderStyle = "thin"
-)
-addStyle(
-  wb,
-  sheet = "Base table",
-  style = border_style,
-  rows = 1:(nrow(tableForPaper) + 1),
-  cols = 1:ncol(tableForPaper),
-  gridExpand = TRUE,
-  stack = TRUE  # Preserve previous styles
-)
-
-# Set compact column widths
-setColWidths(wb, sheet = "Base table", cols = 1:ncol(tableForPaper), widths = 15)
-
-# Save the workbook
-saveWorkbook(wb, excel_file, overwrite = TRUE)
+write.xlsx(cor_spearman, file.path(outputVizInOutputFolder, "correlations_household_allData.xlsx"), overwrite = TRUE)
 
 
 
@@ -1870,26 +1640,12 @@ cor_spearman%>%
   print()
 
 
-# export to excel final file..............................................
-# export to excel final file..............................................
-wb_excelFile_allResults <- add_table_with_title(
-  wb = wb_excelFile_allResults,
-  df = cor_spearman,
-  sheet_name = "cor_hh_2023plus",
-  title = "Spearman correlation - 2023+ to allow overlap with district level correlations that include FIES - DIEM HH"
-)
-
-# Save workbook once at the end
-saveWorkbook(wb_excelFile_allResults, excelFile_allResults_path, overwrite = TRUE)
-
-
 #export to excel............................
 
-tableForPaper<- cor_spearman 
+tableForPaper<- cor_spearman
 
-# export to excel
 # Define path
-excel_file <- file.path(outputVizInOutputFolder, "table_correlations_hh_post2022WithFIES.xlsx")
+excel_file <- file.path(finalTablesFolder, "Table10_correlations_household.xlsx")
 
 # Create workbook and worksheet
 wb <- createWorkbook()
@@ -2253,20 +2009,8 @@ print(cor_spearman)
 tableForPaper<- cor_spearman %>% as.data.frame()%>%
     rownames_to_column(var = "variable")
 
-# export to excel final file..............................................
-wb_excelFile_allResults <- add_table_with_title(
-  wb = wb_excelFile_allResults,
-  df = tableForPaper,
-  sheet_name = "cor_district",
-  title = "Spearman correlation - DIEM district-level"
-)
-
-# Save workbook once at the end
-saveWorkbook(wb_excelFile_allResults, excelFile_allResults_path, overwrite = TRUE)
-
-# export to excel................................
 # Define path
-excel_file <- file.path(outputVizInOutputFolder, "table_correlations_district.xlsx")
+excel_file <- file.path(finalTablesFolder, "Table9_correlations_district.xlsx")
 
 # Create workbook and worksheet
 wb <- createWorkbook()
@@ -2366,18 +2110,6 @@ print(cor_spearman)
 tableForPaper<- cor_spearman %>% as.data.frame()%>%
     rownames_to_column(var = "variable")
 
-# export to excel final file..............................................
-wb_excelFile_allResults <- add_table_with_title(
-  wb = wb_excelFile_allResults,
-  df = tableForPaper,
-  sheet_name = "cor_district_2023+",
-  title = "Spearman correlation - DIEM district-level - 2023+"
-)
-
-# Save workbook once at the end
-saveWorkbook(wb_excelFile_allResults, excelFile_allResults_path, overwrite = TRUE)
-
-# export to excel............................................
 # Define path
 excel_file <- file.path(outputVizInOutputFolder, "table_correlations_district_post2022.xlsx")
 
@@ -2624,17 +2356,6 @@ write.xlsx(summary_table,
            overwrite = TRUE)
 
 
-# export to excel final file..............................................
-wb_excelFile_allResults <- add_table_with_title(
-  wb = wb_excelFile_allResults,
-  df = summary_table,
-  sheet_name = "Indic_descriptives_normalized",
-  title = "normalized indicator values summarized (DIEM hh dataset - entire dataset)."
-)
-
-# Save workbook once at the end
-saveWorkbook(wb_excelFile_allResults, excelFile_allResults_path, overwrite = TRUE)
-  
 # testing the max min normalization formulats
 del_value <- 14
 min_value <- 0
@@ -2797,17 +2518,6 @@ dataToSummarize <- DIEM_FoodSecurity_HH %>%
     values_from = value
   ) 
 
-# export to excel final file..............................................
-wb_excelFile_allResults <- add_table_with_title(
-  wb = wb_excelFile_allResults,
-  df = dataToSummarize,
-  sheet_name = "Indic_descriptives_byCountry",
-  title = "Means and sd of normalized indicator values (DIEM hh dataset - entire dataset)."
-)
-
-# Save workbook once at the end
-saveWorkbook(wb_excelFile_allResults, excelFile_allResults_path, overwrite = TRUE)
-  
 
 
 
@@ -3479,15 +3189,7 @@ indicatorGapsByPhaseOnly <- byPhaseGap_FCS %>%
   bind_rows(indicatorGapsByIndicatorOnly)
 
 
-# export to excel final file..............................................
-wb_excelFile_allResults <- add_table_with_title(
-  wb = wb_excelFile_allResults,
-  df = indicatorGapsByPhaseOnly,
-  sheet_name = "fgtIndicGaps_byPhase",
-  title = "Indicator gaps by phase only"
-)
-# Save workbook once at the end
-saveWorkbook(wb_excelFile_allResults, excelFile_allResults_path, overwrite = TRUE)
+write.xlsx(indicatorGapsByPhaseOnly, file.path(finalTablesFolder, "Table12_FGT_indices_by_phase.xlsx"), overwrite = TRUE)
 
 
 ```
@@ -3590,19 +3292,6 @@ gaps_Table_1 <- IPCdata_forIndicatorGaps %>%
   filter(!all(is.na(fgt1_FCS))) %>%
   ungroup() 
 
-# export to excel final file..............................................
-
-
-wb_excelFile_allResults <- add_table_with_title(
-  wb = wb_excelFile_allResults,
-  df = gaps_Table_1,
-  sheet_name = "deficits_indicators_baseTable",
-  title = "Step one - I took the FGT1 deficits by country and phase and matched them to the IPC data. Then I calculated the total gap in usd millions by population in phase * fgt1 * cost for annual support (.5 *365)...and then summed across phases"
-)
-
-# Save workbook once at the end
-saveWorkbook(wb_excelFile_allResults, excelFile_allResults_path, overwrite = TRUE)
-
 # now on to the FCS table------------------------------------------------------------------
 gaps_Table_fcs <- gaps_Table_1 %>%
   mutate(
@@ -3618,16 +3307,7 @@ gaps_Table_fcs <- gaps_Table_1 %>%
     names_prefix = "IPC phase "
     ) 
 
-wb_excelFile_allResults <- add_table_with_title(
-  wb = wb_excelFile_allResults,
-  df = gaps_Table_fcs,
-  sheet_name = "deficits_tablesByIndicator",
-  title = "Step two - fcs gaps",
-  startRow = 3
-
-)
-saveWorkbook(wb_excelFile_allResults, excelFile_allResults_path, overwrite = TRUE)
-
+write.xlsx(gaps_Table_fcs, file.path(finalTablesFolder, "Table14_FCS_cost_by_country.xlsx"), overwrite = TRUE)
 
 # now on to the RCSI table------------------------------------------------------------------
 gaps_Table_rcsi <- gaps_Table_1 %>%
@@ -3644,18 +3324,6 @@ gaps_Table_rcsi <- gaps_Table_1 %>%
     names_prefix = "IPC phase "
     ) 
 
-wb_excelFile_allResults <- add_table_with_title(
-  wb = wb_excelFile_allResults,
-  df = gaps_Table_rcsi,
-  sheet_name = "deficits_tablesByIndicator",
-  title = "Step two - rcsi gaps",
-  startRow = 3, 
-  startCol = ncol(gaps_Table_fcs) + 2
-
-)
-saveWorkbook(wb_excelFile_allResults, excelFile_allResults_path, overwrite = TRUE)
-
-
 # now on to the HDDS table------------------------------------------------------------------
 gaps_Table_hdds <- gaps_Table_1 %>%
   mutate(
@@ -3670,18 +3338,6 @@ gaps_Table_hdds <- gaps_Table_1 %>%
     values_from = byPhaseValue,
     names_prefix = "IPC phase "
     ) 
-
-wb_excelFile_allResults <- add_table_with_title(
-  wb = wb_excelFile_allResults,
-  df = gaps_Table_hdds,
-  sheet_name = "deficits_tablesByIndicator",
-  title = "Step two - hdds gaps",
-  startRow = 3, 
-  startCol =  ncol(gaps_Table_fcs) + ncol(gaps_Table_fcs) + 2
-
-)
-saveWorkbook(wb_excelFile_allResults, excelFile_allResults_path, overwrite = TRUE)
-
 
 # now on to the HHS table------------------------------------------------------------------
 gaps_Table_hhs <- gaps_Table_1 %>%
@@ -3698,34 +3354,13 @@ gaps_Table_hhs <- gaps_Table_1 %>%
     names_prefix = "IPC phase "
     ) 
 
-wb_excelFile_allResults <- add_table_with_title(
-  wb = wb_excelFile_allResults,
-  df = gaps_Table_hhs,
-  sheet_name = "deficits_tablesByIndicator",
-  title = "Step two - hhs gaps",
-  startRow = 3, 
-  startCol =  ncol(gaps_Table_fcs) + ncol(gaps_Table_fcs) + ncol(gaps_Table_fcs) + 3
-
-)
-saveWorkbook(wb_excelFile_allResults, excelFile_allResults_path, overwrite = TRUE)
-  
-  
 # Now table with only the total cost columns---------------------------------------------
 
 gapsTableTotalsUSDByCountry <- gaps_Table_1 %>%
   select(country_name, year, total_cost_annual_millionsUSD_usingFCSgaps:total_cost_annual_millionsUSD_usingHHSgaps) %>%
   group_by(country_name, year) %>% slice(1) %>% ungroup()
   
-wb_excelFile_allResults <- add_table_with_title(
-  wb = wb_excelFile_allResults,
-  df = gapsTableTotalsUSDByCountry,
-  sheet_name = "deficits_tablesByIndicator",
-  title = "final table - total cost based on indicator gaps",
-  startRow = 3, 
-  startCol = ncol(gaps_Table_fcs) + ncol(gaps_Table_fcs) + ncol(gaps_Table_fcs) + ncol(gaps_Table_fcs) + 4
-
-)
-saveWorkbook(wb_excelFile_allResults, excelFile_allResults_path, overwrite = TRUE)
+write.xlsx(gapsTableTotalsUSDByCountry, file.path(finalTablesFolder, "Table15_all_indicator_costs.xlsx"), overwrite = TRUE)
   
 
 
@@ -3750,42 +3385,6 @@ write.xlsx(countries_fgtgaps,
            overwrite = TRUE)
 
 
-# export to excel final file..............................................
-wb_excelFile_allResults <- add_table_with_title(
-  wb = wb_excelFile_allResults,
-  df = countries_fgtgaps,
-  sheet_name = "fgtIndicGaps_byCountry",
-  title = "FGT indicator gaps by country"
-)
-
-# Save workbook once at the end
-saveWorkbook(wb_excelFile_allResults, excelFile_allResults_path, overwrite = TRUE)
-```
-
-
-
-## Table - indicator gaps by country (not phase)
-```{r combinegaps_byCountry, echo = FALSE ,message = FALSE, warning = FALSE}
-
-countries_fgtgaps <- IPCDIEM_hh %>%
-  select(adm0_name) %>% distinct() %>% arrange(adm0_name) %>%
-  left_join(fcs_gap) %>%
-  left_join(rcsi_gap)%>%
-  left_join(HDDS_gap) %>%
-  left_join(hhs_gap)
-
-
-
-# export to excel final file..............................................
-wb_excelFile_allResults <- add_table_with_title(
-  wb = wb_excelFile_allResults,
-  df = countries_fgtgaps,
-  sheet_name = "fgtIndicGaps_byCountry",
-  title = "FGT indicator gaps by country"
-)
-
-# Save workbook once at the end
-saveWorkbook(wb_excelFile_allResults, excelFile_allResults_path, overwrite = TRUE)
 ```
 
 ## Table - Combine indicator gaps by country and phase
@@ -3893,43 +3492,7 @@ indicatorGapsByPhase_hhs <- indicatorGapsByPhase %>%
 
 
 
-# export to excel final file..............................................
-wb_excelFile_allResults <- add_table_with_title(
-  wb = wb_excelFile_allResults,
-  df = indicatorGapsByPhase_fcs,
-  sheet_name = "fgtIndicGaps_byCountryPhase",
-  title = "FGT FCS gaps by country and phase"
-)
-# Save workbook once at the end
-saveWorkbook(wb_excelFile_allResults, excelFile_allResults_path, overwrite = TRUE)
-
-
-wb_excelFile_allResults <- add_table_with_title(
-  wb = wb_excelFile_allResults,
-  df =  indicatorGapsByPhase_rcsi,
-  sheet_name = "fgtIndicGaps_byCountryPhase",
-  title = "FGT RCSI gaps by country and phase",
-  startCol = ncol(indicatorGapsByPhase_fcs) +2
-)
-saveWorkbook(wb_excelFile_allResults, excelFile_allResults_path, overwrite = TRUE)
-
-wb_excelFile_allResults <- add_table_with_title(
-  wb = wb_excelFile_allResults,
-  df =  indicatorGapsByPhase_hdds,
-  sheet_name = "fgtIndicGaps_byCountryPhase",
-  title = "FGT HDDS gaps by country and phase",
-  startCol = ncol(indicatorGapsByPhase_fcs)+ncol(indicatorGapsByPhase_fcs) +2
-)
-saveWorkbook(wb_excelFile_allResults, excelFile_allResults_path, overwrite = TRUE)
-
-wb_excelFile_allResults <- add_table_with_title(
-  wb = wb_excelFile_allResults,
-  df =  indicatorGapsByPhase_hhs,
-  sheet_name = "fgtIndicGaps_byCountryPhase",
-  title = "FGT HHS gaps by country and phase",
-  startCol = ncol(indicatorGapsByPhase_fcs)+ncol(indicatorGapsByPhase_fcs) + ncol(indicatorGapsByPhase_fcs) +2
-)
-saveWorkbook(wb_excelFile_allResults, excelFile_allResults_path, overwrite = TRUE)
+write.xlsx(indicatorGapsByPhase_fcs, file.path(finalTablesFolder, "Table13_FCS_FGT_by_country_phase.xlsx"), overwrite = TRUE)
 
 
 ```
@@ -4022,22 +3585,8 @@ tableForPaper <- IPCthresholds %>%
   slice(1:5)
 
 
-# export to excel final file..............................................
-wb_excelFile_allResults <- add_table_with_title(
-  wb = wb_excelFile_allResults,
-  df = tableForPaper,
-  sheet_name = "calDefTable_base",
-  title = "Assumed calorie deficits by phase - base table"
-)
-
-# Save workbook once at the end
-saveWorkbook(wb_excelFile_allResults, excelFile_allResults_path, overwrite = TRUE)
-
-# export excel..................................
-library(openxlsx)
-
 # Define path
-excel_file <- file.path(outputVizInOutputFolder, "baseTableForCalorieGaps.xlsx")
+excel_file <- file.path(finalTablesFolder, "Table3_caloric_deficits_by_phase.xlsx")
 
 # Create workbook and worksheet
 wb <- createWorkbook()
@@ -4285,21 +3834,8 @@ dataForExcel <- tableWithRanges %>%
     "No. people" = population_inPhase
   ) 
 
-wb_excelFile_allResults <- add_table_with_title(
-  wb = wb_excelFile_allResults,
-  df = dataForExcel,
-  sheet_name = "calDefTable_byPhase",
-  title = "Assumed calorie deficits by phase"
-)
-
-# Save workbook once at the end
-saveWorkbook(wb_excelFile_allResults, excelFile_allResults_path, overwrite = TRUE)
-
-
-
-# now to excel .............
 # Define path
-excel_file <- file.path(outputVizInOutputFolder, "Table1.xlsx")
+excel_file <- file.path(finalTablesFolder, "Table4_deficits_by_country_phase.xlsx")
 
 # Create workbook and worksheet
 wb <- createWorkbook()
@@ -4393,20 +3929,8 @@ dataForExcel <- tableWithRanges %>%
 # export to excel final file..............................................
 
 
-wb_excelFile_allResults <- add_table_with_title(
-  wb = wb_excelFile_allResults,
-  df = dataForExcel,
-  sheet_name = "calDefTable_byCountry",
-  title = "Assumed calorie deficits by country"
-)
-
-# Save workbook once at the end
-saveWorkbook(wb_excelFile_allResults, excelFile_allResults_path, overwrite = TRUE)
-
-
-# now to excel .............
 # Define path
-excel_file <- file.path(outputVizInOutputFolder, "Table2.xlsx")
+excel_file <- file.path(finalTablesFolder, "Table5_food_assistance_by_country.xlsx")
 
 # Create workbook and worksheet
 wb <- createWorkbook()
