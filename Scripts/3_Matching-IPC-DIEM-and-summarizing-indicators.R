@@ -3489,17 +3489,11 @@ write.xlsx(indicatorGapsByPhase_fcs, file.path(finalTablesFolder, "Table13_FCS_F
 # ---- perPhaseGaps ----
 
 
-IPC1_calDef_upper <- 0
-IPC2_calDef_upper <- 0
-IPC3_calDef_upper <- 0.2
-IPC4_calDef_upper <- 0.5
-IPC5_calDef_upper <- 1
-
-IPC1_calDef_lower <- 0
-IPC2_calDef_lower <- 0
-IPC3_calDef_lower <- 0.01
-IPC4_calDef_lower <- 0.21
-IPC5_calDef_lower <- 0.51
+IPC1_calDef <- 0
+IPC2_calDef <- 0
+IPC3_calDef <- 0.105   # midpoint of 1%-20%
+IPC4_calDef <- 0.355   # midpoint of 21%-50%
+IPC5_calDef <- 0.5     # user-specified
 
 fullAmt <- 2100
 
@@ -3510,59 +3504,31 @@ fullAmt <- 2100
 # ---- createbasetableForPaper ----
 baseTable <- data.frame(
   IPC_phase = c("IPC1", "IPC2", "IPC3", "IPC4", "IPC5"),
-  # Percentage_of_IPC1_UpperBound = c(1.00, 1.00 , .99 , .8 , .5),
-  # Percentage_of_IPC1_LowerBound = c(1.00, 1.00 , .80 , .5 , 0),
-  assumedCalorieDeficit = c("0%", "0%", "< 20%", ">=20% <50%", ">50%")
-  ) 
+  assumedCalorieDeficit = c("0%", "0%", "10.5%", "35.5%", "50%")
+  )
 
 
 #create table of thresholds
 IPCthresholds <- data.frame(
   IPC_phase = c("IPC1", "IPC2", "IPC3", "IPC4", "IPC5"),
-  IPC_calDef_upper = c(IPC1_calDef_upper, IPC2_calDef_upper, IPC3_calDef_upper, IPC4_calDef_upper, IPC5_calDef_upper),
-  IPC_calDef_lower = c(IPC1_calDef_lower, IPC2_calDef_lower, IPC3_calDef_lower, IPC4_calDef_lower, IPC5_calDef_lower)
+  IPC_calDef = c(IPC1_calDef, IPC2_calDef, IPC3_calDef, IPC4_calDef, IPC5_calDef)
 ) %>%
   mutate(
-    calDef_amt_upper = fullAmt * IPC_calDef_upper,
-    calDef_amt_lower = fullAmt * IPC_calDef_lower,
-    
-    kcal_per_person_per_day_upper = fullAmt - calDef_amt_upper,
-    kcal_per_person_per_day_lower = fullAmt - calDef_amt_lower,
-    
-    cerealkgDeficit_upper = round(calDef_amt_upper/3790, 2),
-    cerealkgDeficit_lower = round(calDef_amt_lower/3790, 2)
+    calDef_amt = fullAmt * IPC_calDef,
+    kcal_per_person_per_day = fullAmt - calDef_amt,
+    cerealkgDeficit = round(calDef_amt/3790, 2)
   )
 
 
 tableForPaper <- IPCthresholds %>%
-  mutate(
-    "Assumed caloric deficit in KCal pp/pd" = paste(calDef_amt_lower, " - ", calDef_amt_upper),
-    "Assumed average consumption in KCal pp/pd" = paste(kcal_per_person_per_day_upper, " - ", kcal_per_person_per_day_lower),
-    "Assumed average deficit in cereals kg/pp/pd" = paste(cerealkgDeficit_lower, " - ", cerealkgDeficit_upper)
-  ) %>%
-  #fix the 0-0 versions
-  mutate(
-    `Assumed caloric deficit in KCal pp/pd` = case_when(
-      `Assumed caloric deficit in KCal pp/pd` == "0  -  0" ~ "0",
-      `Assumed caloric deficit in KCal pp/pd` == "1050  -  1050" ~ "1050+",
-      TRUE ~ `Assumed caloric deficit in KCal pp/pd`),
-    
-    `Assumed average consumption in KCal pp/pd` = case_when(
-      `Assumed average consumption in KCal pp/pd` == "2100  -  2100" ~ "2100",
-      `Assumed average consumption in KCal pp/pd` == "1050  -  1050" ~ "<= 1050",
-      TRUE ~ `Assumed average consumption in KCal pp/pd`),
-    
-    `Assumed average deficit in cereals kg/pp/pd` = case_when(
-      `Assumed average deficit in cereals kg/pp/pd` ==  "0  -  0" ~ "0",
-      `Assumed average deficit in cereals kg/pp/pd` ==  "0.28  -  0.28" ~ ">= 0.28",
-      TRUE ~ `Assumed average deficit in cereals kg/pp/pd`)
-  ) %>%
   left_join(baseTable) %>%
-  select(IPC_phase, assumedCalorieDeficit, 
-         `Assumed caloric deficit in KCal pp/pd`:`Assumed average deficit in cereals kg/pp/pd`) %>%
+  select(IPC_phase, assumedCalorieDeficit, calDef_amt, kcal_per_person_per_day, cerealkgDeficit) %>%
   rename(
+    "IPC Phase" = IPC_phase,
     "Assumed caloric deficit (%)" = assumedCalorieDeficit,
-    "IPC Phase" = IPC_phase
+    "Assumed caloric deficit in KCal pp/pd" = calDef_amt,
+    "Assumed average consumption in KCal pp/pd" = kcal_per_person_per_day,
+    "Assumed average deficit in cereals kg/pp/pd" = cerealkgDeficit
   ) %>%
   slice(1:5)
 
@@ -3697,47 +3663,36 @@ IPCcalculations <- IPCdataImported %>%
   left_join(IPCthresholds) %>%
   
   
-   #first - do FGT...........................................................................
+   # FGT index by phase
   mutate(
-    calGap_FGT_upper_byphase = IPC_calDef_upper*percentage_inPhase,
-    calGap_FGT_lower_byphase = IPC_calDef_lower*percentage_inPhase) %>% 
-  #now sum across phases
+    calGap_FGT_byphase = IPC_calDef * percentage_inPhase) %>%
   group_by(country_title) %>%
   mutate(
-    calGap_FGT_upper_acrossAnalysis = sum(calGap_FGT_upper_byphase, na.rm = TRUE),
-    calGap_FGT_lower_acrossAnalysis = sum(calGap_FGT_lower_byphase, na.rm = TRUE),
+    calGap_FGT_acrossAnalysis = sum(calGap_FGT_byphase, na.rm = TRUE)
   ) %>% ungroup() %>%
-  
-  # then do total kcal gap ...............................................................
-    mutate(
-         gap_inKcal_byPhase_acrossPopulation_upper = population_inPhase * calDef_amt_upper,
-         gap_inKcal_byPhase_acrossPopulation_lower = population_inPhase * calDef_amt_lower
-         ) %>%
-  #sum across phases
-  group_by(country_title) %>% 
+
+  # total kcal gap
   mutate(
-    totalGap_inKcal_byAnalysis_upper = sum(gap_inKcal_byPhase_acrossPopulation_upper),
-    totalGap_inKcal_byAnalysis_lower = sum(gap_inKcal_byPhase_acrossPopulation_lower)
-    ) %>% ungroup() %>%
-  
-  # now cereal in kg  gap....................................................................
-  mutate(
-    gap_cerealKG_byPhase_acrossPopulation_upper= population_inPhase * cerealkgDeficit_upper,
-    gap_cerealKG_byPhase_acrossPopulation_lower= population_inPhase * cerealkgDeficit_lower
-         ) %>%
-  # sum across phases
+    gap_inKcal_byPhase_acrossPopulation = population_inPhase * calDef_amt
+  ) %>%
   group_by(country_title) %>%
   mutate(
-    gap_cerealKG_byAnalysis_acrossPopulation_upper = sum(gap_cerealKG_byPhase_acrossPopulation_upper, na.rm = TRUE),
-    gap_cerealKG_byAnalysis_acrossPopulation_lower = sum(gap_cerealKG_byPhase_acrossPopulation_lower, na.rm = TRUE)) %>%ungroup() %>%
-    #change to MT
-    mutate(
-      byPhaseGap_MTCereal_upper = gap_cerealKG_byPhase_acrossPopulation_upper/1000,
-      byPhaseGap_MTCereal_lower = gap_cerealKG_byPhase_acrossPopulation_lower/1000,
-      totalGap_MTCereal_upper = gap_cerealKG_byAnalysis_acrossPopulation_upper/1000,
-      totalGap_MTCereal_lower = gap_cerealKG_byAnalysis_acrossPopulation_lower/1000
-    ) %>% select(-c(gap_cerealKG_byPhase_acrossPopulation_upper, gap_cerealKG_byPhase_acrossPopulation_lower,
-                   gap_cerealKG_byAnalysis_acrossPopulation_upper, gap_cerealKG_byAnalysis_acrossPopulation_lower ))
+    totalGap_inKcal_byAnalysis = sum(gap_inKcal_byPhase_acrossPopulation)
+  ) %>% ungroup() %>%
+
+  # cereal gap in MT
+  mutate(
+    gap_cerealKG_byPhase_acrossPopulation = population_inPhase * cerealkgDeficit
+  ) %>%
+  group_by(country_title) %>%
+  mutate(
+    gap_cerealKG_byAnalysis_acrossPopulation = sum(gap_cerealKG_byPhase_acrossPopulation, na.rm = TRUE)
+  ) %>% ungroup() %>%
+  mutate(
+    byPhaseGap_MTCereal = gap_cerealKG_byPhase_acrossPopulation / 1000,
+    totalGap_MTCereal   = gap_cerealKG_byAnalysis_acrossPopulation / 1000
+  ) %>%
+  select(-c(gap_cerealKG_byPhase_acrossPopulation, gap_cerealKG_byAnalysis_acrossPopulation))
 
 
 
@@ -3748,63 +3703,35 @@ IPCcalculations <- IPCdataImported %>%
 
 tablePrep <- IPCcalculations %>%
   mutate(
-    #first  to millions kCal conversion
-    MillKcalNeeds_byPhase_lower = gap_inKcal_byPhase_acrossPopulation_lower/1000000,
-    MillKcalNeeds_byPhase_upper = gap_inKcal_byPhase_acrossPopulation_upper/1000000,
-    totalGap_inmillKCal_byAnalysis_lower = totalGap_inKcal_byAnalysis_lower/1000000,
-    totalGap_inmillKCal_byAnalysis_upper = totalGap_inKcal_byAnalysis_upper/1000000,
-    
-    # now format commas........................................................................
-    population_inPhase = scales::comma_format(accuracy = 1)(population_inPhase),
-    byPhaseGap_MTCereal_lower = scales::comma_format(accuracy = 0.1)(byPhaseGap_MTCereal_lower),
-    byPhaseGap_MTCereal_upper = scales::comma_format(accuracy = 0.1)(byPhaseGap_MTCereal_upper),
-    totalGap_MTCereal_lower = scales::comma_format(accuracy = 0.1)(totalGap_MTCereal_lower),
-    totalGap_MTCereal_upper = scales::comma_format(accuracy = 0.1)(totalGap_MTCereal_upper),
-
-    MillKcalNeeds_byPhase_lower = scales::comma_format(accuracy = 0.1)(MillKcalNeeds_byPhase_lower),
-    MillKcalNeeds_byPhase_upper = scales::comma_format(accuracy = 0.1)(MillKcalNeeds_byPhase_upper),
-    totalGap_inmillKCal_byAnalysis_lower = scales::comma_format(accuracy = 0.1)(totalGap_inmillKCal_byAnalysis_lower),
-    totalGap_inmillKCal_byAnalysis_upper = scales::comma_format(accuracy = 0.1)(totalGap_inmillKCal_byAnalysis_upper)) 
+    MillKcalNeeds_byPhase    = gap_inKcal_byPhase_acrossPopulation / 1000000,
+    totalGap_inmillKCal      = totalGap_inKcal_byAnalysis / 1000000,
+    population_inPhase       = scales::comma_format(accuracy = 1)(population_inPhase),
+    byPhaseGap_MTCereal      = scales::comma_format(accuracy = 0.1)(byPhaseGap_MTCereal),
+    totalGap_MTCereal        = scales::comma_format(accuracy = 0.1)(totalGap_MTCereal),
+    MillKcalNeeds_byPhase    = scales::comma_format(accuracy = 0.1)(MillKcalNeeds_byPhase),
+    totalGap_inmillKCal      = scales::comma_format(accuracy = 0.1)(totalGap_inmillKCal)
+  )
 
 tableWithRanges <- tablePrep %>%
- # mutate(country_title = paste(countryName, "-", country_title)) %>%
- # select(-c(countryName, country_analysis_date_year)) %>%
   filter(str_detect(country_title, "2024")) %>%
   mutate(country_title = str_remove(country_title, "Acute Food Insecurity")) %>%
   mutate(country_title = str_remove(country_title, "Cadre Harmonisé")) %>%
   mutate(country_title = str_remove(country_title, "CH Analysis")) %>%
-  filter(!str_detect(country_title, "displaced")) %>%  
+  filter(!str_detect(country_title, "displaced")) %>%
+  rename(
+    "Gap mill. kcal"                  = MillKcalNeeds_byPhase,
+    "Total gap mill. kcal"            = totalGap_inmillKCal,
+    "Calorie gap by phase (FGT index)"= calGap_FGT_byphase,
+    "Calorie gap (FGT index)"         = calGap_FGT_acrossAnalysis,
+    "Gap MT cereal"                   = byPhaseGap_MTCereal,
+    "Total gap MT cereal"             = totalGap_MTCereal
+  ) %>%
   select(
-    country_title, IPC_phase, population_inPhase, 
-    MillKcalNeeds_byPhase_lower, MillKcalNeeds_byPhase_upper, 
-    totalGap_inmillKCal_byAnalysis_lower, totalGap_inmillKCal_byAnalysis_upper, 
-    byPhaseGap_MTCereal_lower, byPhaseGap_MTCereal_upper, 
-    totalGap_MTCereal_lower, totalGap_MTCereal_upper,
-    calGap_FGT_lower_byphase, calGap_FGT_upper_byphase,
-    calGap_FGT_lower_acrossAnalysis, calGap_FGT_upper_acrossAnalysis
-    
-    ) %>%
-  #do the ranges
-  mutate(
-    "Gap mill. kcal" = paste(MillKcalNeeds_byPhase_upper, " - ", MillKcalNeeds_byPhase_lower),
-    "Total gap mill. kcal" = paste(totalGap_inmillKCal_byAnalysis_upper, " - ", totalGap_inmillKCal_byAnalysis_lower),
-    "Calorie gap by phase (FGT index)" = paste(calGap_FGT_lower_byphase, " - ", calGap_FGT_upper_byphase),
-    "Calorie gap (FGT index)" = paste(calGap_FGT_lower_acrossAnalysis, " - ", calGap_FGT_upper_acrossAnalysis),
-    "Gap MT cereal" = paste(byPhaseGap_MTCereal_lower, " - ", byPhaseGap_MTCereal_upper),
-    "Total gap MT cereal" = paste(totalGap_MTCereal_lower, " - ", totalGap_MTCereal_upper)
-    ) %>%
-  # fix the 0.0 - 0.0 
-  mutate(
-    across(
-      c(`Gap mill. kcal`, `Total gap mill. kcal`, `Calorie gap by phase (FGT index)`,
-        `Gap MT cereal`, `Total gap MT cereal`),
-      ~ case_when(
-        .x == "0.0  -  0.0" |  .x == "0  -  0" ~ "0",
-        TRUE ~ .x ))) %>%
-  select(
-    country_title, IPC_phase, population_inPhase, 
-    `Gap mill. kcal`, `Total gap mill. kcal`, `Calorie gap by phase (FGT index)` ,`Calorie gap (FGT index)`, `Gap MT cereal`, `Total gap MT cereal`
-    )
+    country_title, IPC_phase, population_inPhase,
+    `Gap mill. kcal`, `Total gap mill. kcal`,
+    `Calorie gap by phase (FGT index)`, `Calorie gap (FGT index)`,
+    `Gap MT cereal`, `Total gap MT cereal`
+  )
 
 # export to excel final file..............................................
 dataForExcel <- tableWithRanges %>%
