@@ -86,6 +86,121 @@ IPCDIEM_hh <- IPCDIEM_hh_imported
 
 ```
 
+# create excel file for all tables
+```{r createexcel, echo = FALSE,message = FALSE, warning = FALSE}
+excelFile_allResults_path <- file.path(outputVizInOutputFolder, "allresults_2025_11_12.xlsx")
+
+# Load workbook if it exists, otherwise create a new one
+if (file.exists(excelFile_allResults_path)) {
+    wb_excelFile_allResults <- loadWorkbook(excelFile_allResults_path)
+} else {
+    wb_excelFile_allResults <- createWorkbook()
+}
+
+```
+
+## make function for saving in this file
+
+```{r function_excel, echo = FALSE,message = FALSE, warning = FALSE}
+
+add_table_with_title <- function(
+    wb,
+    df,
+    sheet_name,
+    title,
+    start_row_title = 1,
+    start_row_table = 3,
+    startRow = NULL,    # NEW optional argument (row override)
+    startCol = 1        # NEW optional argument (column offset)
+) {
+
+  # --- Backward compatibility: override row settings only if startRow is provided ---
+  if (!is.null(startRow)) {
+    start_row_title <- startRow
+    start_row_table <- startRow + 2   # table starts 2 rows below title
+  }
+
+  # Create sheet if it doesn't exist
+  if (!(sheet_name %in% names(wb))) {
+    addWorksheet(wb, sheet_name)
+  }
+
+  # --- Write title ---
+  writeData(
+    wb,
+    sheet = sheet_name,
+    x = title,
+    startCol = startCol,
+    startRow = start_row_title
+  )
+
+  # Title style
+  title_style <- createStyle(
+    textDecoration = "bold",
+    halign = "left",
+    valign = "center",
+    fontSize = 14
+  )
+  addStyle(
+    wb,
+    sheet = sheet_name,
+    style = title_style,
+    rows = start_row_title,
+    cols = startCol,
+    gridExpand = TRUE
+  )
+
+  # --- Write dataframe ---
+  writeData(
+    wb,
+    sheet = sheet_name,
+    x = df,
+    startCol = startCol,
+    startRow = start_row_table,
+    colNames = TRUE,
+    rowNames = FALSE
+  )
+
+  # Header style
+  header_style <- createStyle(
+    textDecoration = "bold",
+    halign = "left",
+    valign = "center",
+    wrapText = TRUE
+  )
+  addStyle(
+    wb,
+    sheet = sheet_name,
+    style = header_style,
+    rows = start_row_table,
+    cols = startCol:(startCol + ncol(df) - 1),
+    gridExpand = TRUE
+  )
+
+  # Body style
+  body_style <- createStyle(
+    halign = "left"
+  )
+  addStyle(
+    wb,
+    sheet = sheet_name,
+    style = body_style,
+    rows = (start_row_table + 1):(start_row_table + nrow(df)),
+    cols = startCol:(startCol + ncol(df) - 1),
+    gridExpand = TRUE
+  )
+
+  # Column widths
+  setColWidths(
+    wb,
+    sheet = sheet_name,
+    cols = startCol:(startCol + ncol(df) - 1),
+    widths = 15
+  )
+
+  return(wb)
+}
+```
 
 ## Import DIEM aggregated, IPC, and DIEM hh pre 2023
 
@@ -389,122 +504,6 @@ saveWorkbook(wb_excelFile_allResults, excelFile_allResults_path, overwrite = TRU
 
 ```
 
-# create excel file for all tables
-```{r createexcel, echo = FALSE,message = FALSE, warning = FALSE}
-excelFile_allResults_path <- file.path(outputVizInOutputFolder, "allresults_2025_11_12.xlsx")
-
-# Load workbook if it exists, otherwise create a new one
-if (file.exists(excelFile_allResults_path)) {
-    wb_excelFile_allResults <- loadWorkbook(excelFile_allResults_path)
-} else {
-    wb_excelFile_allResults <- createWorkbook()
-}
-
-```
-
-## make function for saving in this file
-
-```{r function_excel, echo = FALSE,message = FALSE, warning = FALSE}
-
-add_table_with_title <- function(
-    wb, 
-    df, 
-    sheet_name, 
-    title, 
-    start_row_title = 1, 
-    start_row_table = 3, 
-    startRow = NULL,    # NEW optional argument (row override)
-    startCol = 1        # NEW optional argument (column offset)
-) {
-  
-  # --- Backward compatibility: override row settings only if startRow is provided ---
-  if (!is.null(startRow)) {
-    start_row_title <- startRow
-    start_row_table <- startRow + 2   # table starts 2 rows below title
-  }
-  
-  # Create sheet if it doesn't exist
-  if (!(sheet_name %in% names(wb))) {
-    addWorksheet(wb, sheet_name)
-  }
-  
-  # --- Write title ---
-  writeData(
-    wb,
-    sheet = sheet_name,
-    x = title,
-    startCol = startCol,
-    startRow = start_row_title
-  )
-  
-  # Title style
-  title_style <- createStyle(
-    textDecoration = "bold",
-    halign = "left",
-    valign = "center",
-    fontSize = 14
-  )
-  addStyle(
-    wb,
-    sheet = sheet_name,
-    style = title_style,
-    rows = start_row_title,
-    cols = startCol,
-    gridExpand = TRUE
-  )
-  
-  # --- Write dataframe ---
-  writeData(
-    wb,
-    sheet = sheet_name,
-    x = df,
-    startCol = startCol,
-    startRow = start_row_table,
-    colNames = TRUE,
-    rowNames = FALSE
-  )
-  
-  # Header style
-  header_style <- createStyle(
-    textDecoration = "bold",
-    halign = "left",
-    valign = "center",
-    wrapText = TRUE
-  )
-  addStyle(
-    wb,
-    sheet = sheet_name,
-    style = header_style,
-    rows = start_row_table,
-    cols = startCol:(startCol + ncol(df) - 1),
-    gridExpand = TRUE
-  )
-  
-  # Body style
-  body_style <- createStyle(
-    halign = "left"
-  )
-  addStyle(
-    wb,
-    sheet = sheet_name,
-    style = body_style,
-    rows = (start_row_table + 1):(start_row_table + nrow(df)),
-    cols = startCol:(startCol + ncol(df) - 1),
-    gridExpand = TRUE
-  )
-  
-  # Column widths
-  setColWidths(
-    wb,
-    sheet = sheet_name,
-    cols = startCol:(startCol + ncol(df) - 1),
-    widths = 15
-  )
-  
-  return(wb)
-}
-```
-
 # Data work
 
 Here is a summary of the data work:
@@ -552,7 +551,7 @@ Below are the key indicators, categorized by type. In the data shown below, I in
 
 ```{r dataMaching, echo = FALSE ,message = FALSE, warning = FALSE}
 DIEM_FoodSecurity <- DIEM_FoodSecurityImported %>%
-  mutate(start_dateForMatching_DIEM = coll_start_date %m-% months(2),
+  mutate(start_dateForMatching_DIEM = coll_start_date %m-% months(5),
          end_dateForMatching_DIEM = coll_start_date %m+% months(5)) %>%
   relocate(c(start_dateForMatching_DIEM, end_dateForMatching_DIEM), .before =coll_start_date ) %>%
   select(iso3, adm2_name, adm_name, coll_start_date, start_dateForMatching_DIEM, end_dateForMatching_DIEM,
@@ -575,7 +574,7 @@ DIEM_FoodSecurity <- DIEM_FoodSecurityImported %>%
          )
 
 IPCdata <- IPCdataImported %>%
-  mutate(start_dateForMatching_IPC = country_analysis_date %m-% months(2),
+  mutate(start_dateForMatching_IPC = country_analysis_date %m-% months(5),
          end_dateForMatching_IPC = country_analysis_date %m+% months(5)) %>%
   relocate(c(start_dateForMatching_IPC, end_dateForMatching_IPC), .before = country_analysis_date )
 
@@ -1417,8 +1416,8 @@ hdds_score_byPhase_byYear <- IPCDIEM_hh %>%
   mutate(year_fromIPCAnalysis = as.character(year_fromIPCAnalysis)) %>%
   select(year_fromIPCAnalysis, variable, IPC_1, IPC_2, IPC_3, IPC_4 )
 
-hdds_score_acrossYears <- bind_rows(fcs_byPhase_allObservations %>% rename(
-  year_fromIPCAnalysis = adm0_name), fcs_byPhase_byYear) %>%
+hdds_score_acrossYears <- bind_rows(hdds_score_byPhase_allObservations %>% rename(
+  year_fromIPCAnalysis = adm0_name), hdds_score_byPhase_byYear) %>%
   filter(year_fromIPCAnalysis != "2020") %>%
   gt() %>%
     tab_header(
@@ -2955,7 +2954,7 @@ ggsave(
 ```
 
 ## RCSI gap
-RCSI with the cutoff at 18. 
+RCSI with the cutoff at 19. 
 ```{r microdata_rCSI, echo=FALSE, message=FALSE, warning=FALSE}
 
 microData_RCSI <- IPCDIEM_hh %>%
@@ -3765,8 +3764,8 @@ saveWorkbook(wb_excelFile_allResults, excelFile_allResults_path, overwrite = TRU
 
 
 
-## Table - indicator gaps by country (not phase) 
-```{r combinegaps, echo = FALSE ,message = FALSE, warning = FALSE}
+## Table - indicator gaps by country (not phase)
+```{r combinegaps_byCountry, echo = FALSE ,message = FALSE, warning = FALSE}
 
 countries_fgtgaps <- IPCDIEM_hh %>%
   select(adm0_name) %>% distinct() %>% arrange(adm0_name) %>%
