@@ -3382,14 +3382,14 @@ indicatorGapsByPhase <- bind_rows(gap_FCS_byPhase, gap_RCSI_byPhase,gap_hdds_byP
     names_glue = "{indicator}_{.value}"
   ) %>%
     relocate(matches("^FCS_"), .after = ipcphase) %>%
-  relocate(matches("^RCSI_"), .after = last_col()) %>%
+  relocate(matches("^rcsi_"), .after = last_col()) %>%
   relocate(matches("^hdds_"), .after = last_col()) %>%
   relocate(matches("^hhs_"), .after = last_col()) %>%
     pivot_wider(
     id_cols = adm0_name,
     names_from = ipcphase,
     values_from = c(FCS_FGT0, FCS_FGT1,
-                    RCSI_FGT0, RCSI_FGT1,
+                    rcsi_FGT0, rcsi_FGT1,
                     hdds_FGT0, hdds_FGT1,
                     hhs_FGT0,  hhs_FGT1),
     names_glue = "{.value}_phase{ipcphase}"
@@ -3415,19 +3415,19 @@ indicatorGapsByPhase_fcs <- indicatorGapsByPhase %>%
 
 # now for rcsi
 indicatorGapsByPhase_rcsi <- indicatorGapsByPhase %>%
-  select(adm0_name, starts_with("RCSI_")) %>%
+  select(adm0_name, starts_with("rcsi_")) %>%
     select(
     adm0_name,
-    RCSI_FGT0_phase1, RCSI_FGT1_phase1,
-    RCSI_FGT0_phase2, RCSI_FGT1_phase2,
-    RCSI_FGT0_phase3, RCSI_FGT1_phase3,
-    RCSI_FGT0_phase4, RCSI_FGT1_phase4
+    rcsi_FGT0_phase1, rcsi_FGT1_phase1,
+    rcsi_FGT0_phase2, rcsi_FGT1_phase2,
+    rcsi_FGT0_phase3, rcsi_FGT1_phase3,
+    rcsi_FGT0_phase4, rcsi_FGT1_phase4
   ) %>%
   mutate(
-    Phase_1_rcsi = paste0("FGT0: ", RCSI_FGT0_phase1, "  |  FCT1: ", RCSI_FGT1_phase1),
-    Phase_2_rcsi = paste0("FGT0: ", RCSI_FGT0_phase2, "  |  FCT1: ", RCSI_FGT1_phase2),
-    Phase_3_rcsi = paste0("FGT0: ", RCSI_FGT0_phase3, "  |  FCT1: ", RCSI_FGT1_phase3),
-    Phase_4_rcsi = paste0("FGT0: ", RCSI_FGT0_phase4, "  |  FCT1: ", RCSI_FGT1_phase4)
+    Phase_1_rcsi = paste0("FGT0: ", rcsi_FGT0_phase1, "  |  FCT1: ", rcsi_FGT1_phase1),
+    Phase_2_rcsi = paste0("FGT0: ", rcsi_FGT0_phase2, "  |  FCT1: ", rcsi_FGT1_phase2),
+    Phase_3_rcsi = paste0("FGT0: ", rcsi_FGT0_phase3, "  |  FCT1: ", rcsi_FGT1_phase3),
+    Phase_4_rcsi = paste0("FGT0: ", rcsi_FGT0_phase4, "  |  FCT1: ", rcsi_FGT1_phase4)
   ) %>%
   select(adm0_name,Phase_1_rcsi, Phase_2_rcsi, Phase_3_rcsi, Phase_4_rcsi )
 
