@@ -300,7 +300,7 @@ IPC_DIEM_hh_matched <- DIEM_hh_combined %>%
   # add thresholds
   mutate(
     line_fcs = 35,
-    line_rcsi = 18,
+    line_rcsi = 19,
     line_hdds = 5,
     line_hhs = 2
   )
