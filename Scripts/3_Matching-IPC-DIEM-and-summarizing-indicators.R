@@ -174,13 +174,6 @@ describingIPC_DIEM <- IPCDIEM_hh %>%
   distinct()
   
 del <- describingIPC_DIEM %>%
-  count(area_overall_phase, name = "n_analyses") 
-
-# write_xlsx(del, file.path(outputVizInOutputFolder, "descriptives_table1_matched_districts_by_phase.xlsx"))
-
-write_paper_table(del, file.path(finalTablesFolder, "Table6_matched_areas_by_phase.xlsx"))
-
-del <- describingIPC_DIEM %>%
   group_by(adm0_name) %>%
   count(area_overall_phase, name = "n_analyses") %>% ungroup() %>%
   pivot_wider(names_from = area_overall_phase, values_from = n_analyses) %>%
@@ -190,14 +183,14 @@ del <- describingIPC_DIEM %>%
          IPC4 = `4`) %>%
   select(adm0_name, IPC1, IPC2, IPC3, IPC4) %>%
   arrange(adm0_name) %>%
-    mutate(across(everything(), ~replace_na(., 0)))
+  mutate(across(everything(), ~replace_na(., 0))) %>%
+  bind_rows(
+    summarise(., adm0_name = "Total", across(where(is.numeric), sum))
+  )
 
+write_paper_table(del, file.path(finalTablesFolder, "Table6_matched_areas_by_country.xlsx"))
 
-# write_xlsx(del, file.path(outputVizInOutputFolder, "descriptives_table2_matched_districts_by_phase.xlsx"))
-
-write_paper_table(del, file.path(finalTablesFolder, "Table8_matched_areas_by_country.xlsx"))
-
-# by time
+# by time (appendix)
 del <- describingIPC_DIEM %>%
   group_by(year) %>%
   count(area_overall_phase, name = "n_analyses") %>% ungroup() %>%
@@ -208,9 +201,7 @@ del <- describingIPC_DIEM %>%
          IPC4 = `4`) %>%
   relocate(IPC1, .before = IPC2)
 
-# write_xlsx(del, file.path(outputVizInOutputFolder, "descriptives_table3_matched_districts_by_phase.xlsx"))
-
-write_paper_table(del, file.path(finalTablesFolder, "Table7_time_coverage.xlsx"))
+write_paper_table(del, file.path(finalTablesFolder, "AppendixA1_time_coverage.xlsx"))
 
 
 
