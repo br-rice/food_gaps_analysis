@@ -188,7 +188,7 @@ del <- describingIPC_DIEM %>%
     summarise(., adm0_name = "Total", across(where(is.numeric), sum))
   )
 
-write_paper_table(del, file.path(finalTablesFolder, "Table6_matched_areas_by_country.xlsx"))
+write_paper_table(del, file.path(finalTablesFolder, "Table5_matched_areas_by_country.xlsx"))
 
 # by time (appendix)
 del <- describingIPC_DIEM %>%
@@ -1587,7 +1587,7 @@ toShow %>%
 
   
 
-write_paper_table(toShow, file.path(finalTablesFolder, "Table11_indicator_means_by_phase.xlsx"))
+write_paper_table(toShow, file.path(finalTablesFolder, "Table8_indicator_means_by_phase.xlsx"))
 
 
 
@@ -1653,7 +1653,7 @@ cor_spearman%>%
 
 tableForPaper <- cor_spearman
 
-write_paper_table(tableForPaper, file.path(finalTablesFolder, "Table10_correlations_household.xlsx"))
+write_paper_table(tableForPaper, file.path(finalTablesFolder, "Table7_correlations_household.xlsx"))
 
 
 
@@ -1950,7 +1950,7 @@ print(cor_spearman)
 tableForPaper <- cor_spearman %>% as.data.frame() %>%
     rownames_to_column(var = "variable")
 
-write_paper_table(tableForPaper, file.path(finalTablesFolder, "Table9_correlations_district.xlsx"))
+write_paper_table(tableForPaper, file.path(finalTablesFolder, "Table6_correlations_district.xlsx"))
 
 
 # ## Correlations (DIEM district-level means post 2022) 
@@ -3098,7 +3098,7 @@ indicatorGapsByPhaseOnly <- byPhaseGap_FCS %>%
   bind_rows(indicatorGapsByIndicatorOnly)
 
 
-write_paper_table(indicatorGapsByPhaseOnly, file.path(finalTablesFolder, "Table12_FGT_indices_by_phase.xlsx"))
+write_paper_table(indicatorGapsByPhaseOnly, file.path(finalTablesFolder, "Table9_FGT_indices_by_phase.xlsx"))
 
 
 
@@ -3216,7 +3216,7 @@ gaps_Table_fcs <- gaps_Table_1 %>%
     names_prefix = "IPC phase "
     ) 
 
-write_paper_table(gaps_Table_fcs, file.path(finalTablesFolder, "Table14_FCS_cost_by_country.xlsx"))
+write_paper_table(gaps_Table_fcs, file.path(finalTablesFolder, "Table11_FCS_cost_by_country.xlsx"))
 
 # now on to the RCSI table------------------------------------------------------------------
 gaps_Table_rcsi <- gaps_Table_1 %>%
@@ -3269,7 +3269,7 @@ gapsTableTotalsUSDByCountry <- gaps_Table_1 %>%
   select(country_name, year, total_cost_annual_millionsUSD_usingFCSgaps:total_cost_annual_millionsUSD_usingHHSgaps) %>%
   group_by(country_name, year) %>% slice(1) %>% ungroup()
   
-write_paper_table(gapsTableTotalsUSDByCountry, file.path(finalTablesFolder, "Table15_all_indicator_costs.xlsx"))
+write_paper_table(gapsTableTotalsUSDByCountry, file.path(finalTablesFolder, "Table12_all_indicator_costs.xlsx"))
   
 
 
@@ -3400,7 +3400,7 @@ indicatorGapsByPhase_hhs <- indicatorGapsByPhase %>%
 
 
 
-write_paper_table(indicatorGapsByPhase_fcs, file.path(finalTablesFolder, "Table13_FCS_FGT_by_country_phase.xlsx"))
+write_paper_table(indicatorGapsByPhase_fcs, file.path(finalTablesFolder, "Table10_FCS_FGT_by_country_phase.xlsx"))
 
 
 
@@ -3571,11 +3571,19 @@ tablePrep <- IPCcalculations %>%
   )
 
 tableWithRanges <- tablePrep %>%
-  filter(str_detect(country_title, "2024")) %>%
   mutate(country_title = str_remove(country_title, "Acute Food Insecurity")) %>%
   mutate(country_title = str_remove(country_title, "Cadre Harmonisé")) %>%
   mutate(country_title = str_remove(country_title, "CH Analysis")) %>%
   filter(!str_detect(country_title, "displaced")) %>%
+  # keep only the most recent analysis per country
+  mutate(
+    country_name_clean = str_extract(country_title, "^[^-]+") %>% str_trim(),
+    year_analysis      = as.integer(str_extract(country_title, "\\d{4}"))
+  ) %>%
+  group_by(country_name_clean, IPC_phase) %>%
+  filter(year_analysis == max(year_analysis, na.rm = TRUE)) %>%
+  ungroup() %>%
+  select(-country_name_clean, -year_analysis) %>%
   rename(
     "Gap mill. kcal"                  = MillKcalNeeds_byPhase,
     "Total gap mill. kcal"            = totalGap_inmillKCal,
@@ -3610,7 +3618,7 @@ dataForExcel <- tableWithRanges %>%
     "No. people" = population_inPhase
   )
 
-write_paper_table(dataForExcel, file.path(finalTablesFolder, "Table4_deficits_by_country_phase.xlsx"))
+write_paper_table(dataForExcel, file.path(finalTablesFolder, "AppendixA2_deficits_by_country_phase.xlsx"))
 
 
 #=====================================================================================================
@@ -3628,7 +3636,7 @@ dataForExcel <- tableWithRanges %>%
 # export to excel final file..............................................
 
 
-write_paper_table(dataForExcel, file.path(finalTablesFolder, "Table5_food_assistance_by_country.xlsx"))
+write_paper_table(dataForExcel, file.path(finalTablesFolder, "Table4_food_assistance_by_country.xlsx"))
 
 
 #=============================================================================
