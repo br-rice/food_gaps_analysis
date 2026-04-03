@@ -2283,6 +2283,11 @@ summarize_for_comparison <- function(df, group_label) {
 full_summary    <- summarize_for_comparison(DIEM_FoodSecurity_HH, "Full DIEM")
 matched_summary <- summarize_for_comparison(IPCDIEM_hh,           "Matched (IPC-DIEM)")
 
+# Restrict to countries present in both samples
+countries_in_both <- intersect(full_summary$adm0_name, matched_summary$adm0_name)
+full_summary    <- full_summary    %>% filter(adm0_name %in% countries_in_both)
+matched_summary <- matched_summary %>% filter(adm0_name %in% countries_in_both)
+
 # Overall rows (pooled across all countries)
 summarize_overall <- function(df, group_label) {
   df %>%
@@ -2299,8 +2304,8 @@ summarize_overall <- function(df, group_label) {
     mutate(adm0_name = "Overall", sample = group_label)
 }
 
-overall_full    <- summarize_overall(DIEM_FoodSecurity_HH, "Full DIEM")
-overall_matched <- summarize_overall(IPCDIEM_hh,           "Matched (IPC-DIEM)")
+overall_full    <- summarize_overall(DIEM_FoodSecurity_HH %>% filter(adm0_name %in% countries_in_both), "Full DIEM")
+overall_matched <- summarize_overall(IPCDIEM_hh           %>% filter(adm0_name %in% countries_in_both), "Matched (IPC-DIEM)")
 
 appendix_comparison <- bind_rows(overall_full, overall_matched, full_summary, matched_summary) %>%
   arrange(adm0_name == "Overall", adm0_name, sample) %>%
@@ -2313,12 +2318,12 @@ appendix_comparison <- bind_rows(overall_full, overall_matched, full_summary, ma
   select(adm0_name, sample,
          fcs, fcs_n, hdds, hdds_score_n, hhs, hhs_n, rcsi, rcsi_score_n) %>%
   rename(
-    Country          = adm0_name,
-    Sample           = sample,
-    "FCS mean (SD)"  = fcs,  "FCS N"  = fcs_n,
-    "HDDS mean (SD)" = hdds, "HDDS N" = hdds_score_n,
-    "HHS mean (SD)"  = hhs,  "HHS N"  = hhs_n,
-    "rCSI mean (SD)" = rcsi, "rCSI N" = rcsi_score_n
+    Country  = adm0_name,
+    Sample   = sample,
+    FCS      = fcs,  "FCS N"  = fcs_n,
+    HDDS     = hdds, "HDDS N" = hdds_score_n,
+    HHS      = hhs,  "HHS N"  = hhs_n,
+    rCSI     = rcsi, "rCSI N" = rcsi_score_n
   )
 
 write_paper_table(appendix_comparison,
