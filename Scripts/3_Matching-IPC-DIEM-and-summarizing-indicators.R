@@ -2250,6 +2250,80 @@ summary_table
 
 
 
+# ## Appendix: Full DIEM vs matched IPC-DIEM sample comparison
+
+# Addresses reviewer concern about representativeness of the matched subsample.
+# Compares indicator distributions in the full DIEM household dataset against the
+# matched IPC-DIEM subsample, by country. Similar means/SDs suggest the matching
+# procedure does not systematically select atypical observations.
+# Note: this comparison cannot establish that either sample is representative of
+# the broader population in IPC-classified areas -- only that the matched subsample
+# is not distorted relative to the full DIEM sample.
+
+# ---- appendix_full_vs_matched ----
+
+vars_compare <- c("fcs", "hdds_score", "hhs", "rcsi_score")
+
+summarize_for_comparison <- function(df, group_label) {
+  df %>%
+    select(OBJECTID, adm0_name, all_of(vars_compare)) %>%
+    group_by(OBJECTID) %>% slice(1) %>% ungroup() %>%
+    group_by(adm0_name) %>%
+    summarise(across(all_of(vars_compare),
+      list(
+        mean = ~round(mean(.x, na.rm = TRUE), 1),
+        sd   = ~round(sd(.x, na.rm = TRUE), 1),
+        n    = ~sum(!is.na(.x))
+      ),
+      .names = "{.col}_{.fn}"
+    ), .groups = "drop") %>%
+    mutate(sample = group_label)
+}
+
+full_summary    <- summarize_for_comparison(DIEM_FoodSecurity_HH, "Full DIEM")
+matched_summary <- summarize_for_comparison(IPCDIEM_hh,           "Matched (IPC-DIEM)")
+
+# Overall rows (pooled across all countries)
+summarize_overall <- function(df, group_label) {
+  df %>%
+    select(OBJECTID, all_of(vars_compare)) %>%
+    group_by(OBJECTID) %>% slice(1) %>% ungroup() %>%
+    summarise(across(all_of(vars_compare),
+      list(
+        mean = ~round(mean(.x, na.rm = TRUE), 1),
+        sd   = ~round(sd(.x, na.rm = TRUE), 1),
+        n    = ~sum(!is.na(.x))
+      ),
+      .names = "{.col}_{.fn}"
+    )) %>%
+    mutate(adm0_name = "Overall", sample = group_label)
+}
+
+overall_full    <- summarize_overall(DIEM_FoodSecurity_HH, "Full DIEM")
+overall_matched <- summarize_overall(IPCDIEM_hh,           "Matched (IPC-DIEM)")
+
+appendix_comparison <- bind_rows(overall_full, overall_matched, full_summary, matched_summary) %>%
+  arrange(adm0_name == "Overall", adm0_name, sample) %>%
+  mutate(
+    fcs  = paste0(fcs_mean,        " (", fcs_sd,        ")"),
+    hdds = paste0(hdds_score_mean, " (", hdds_score_sd, ")"),
+    hhs  = paste0(hhs_mean,        " (", hhs_sd,        ")"),
+    rcsi = paste0(rcsi_score_mean, " (", rcsi_score_sd, ")")
+  ) %>%
+  select(adm0_name, sample,
+         fcs, fcs_n, hdds, hdds_score_n, hhs, hhs_n, rcsi, rcsi_score_n) %>%
+  rename(
+    Country          = adm0_name,
+    Sample           = sample,
+    "FCS mean (SD)"  = fcs,  "FCS N"  = fcs_n,
+    "HDDS mean (SD)" = hdds, "HDDS N" = hdds_score_n,
+    "HHS mean (SD)"  = hhs,  "HHS N"  = hhs_n,
+    "rCSI mean (SD)" = rcsi, "rCSI N" = rcsi_score_n
+  )
+
+write_paper_table(appendix_comparison,
+  file.path(finalTablesFolder, "AppendixA3_full_vs_matched_DIEM.xlsx"))
+
 
 # ---- microData_2 ----
 ## Summarize micro data
