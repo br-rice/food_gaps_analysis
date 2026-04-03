@@ -68,6 +68,63 @@ write_paper_table <- function(df, filepath, sheet = "Sheet1") {
   saveWorkbook(wb, filepath, overwrite = TRUE)
 }
 
+# Helper: export a correlation matrix with conditional cell shading.
+# |r| > 0.6  → green;  0.4 ≤ |r| ≤ 0.6 → yellow;  |r| < 0.4 → light red.
+# Diagonal cells (value == 1) are left unshaded.
+write_correlation_table <- function(df, filepath, sheet = "Sheet1") {
+  wb <- createWorkbook()
+  addWorksheet(wb, sheet)
+  writeData(wb, sheet = sheet, x = df, startCol = 1, startRow = 1,
+            colNames = TRUE, rowNames = FALSE)
+
+  header_style <- createStyle(
+    textDecoration = "bold", halign = "center", valign = "center",
+    wrapText = TRUE, fontSize = 11,
+    border = "TopBottomLeftRight", borderStyle = "thin"
+  )
+  addStyle(wb, sheet = sheet, style = header_style,
+           rows = 1, cols = 1:ncol(df), gridExpand = TRUE)
+
+  first_col_style <- createStyle(
+    halign = "left", valign = "center", fontSize = 11,
+    border = "TopBottomLeftRight", borderStyle = "thin"
+  )
+  addStyle(wb, sheet = sheet, style = first_col_style,
+           rows = 2:(nrow(df) + 1), cols = 1, gridExpand = TRUE)
+
+  green_style  <- createStyle(halign = "center", valign = "center", fontSize = 11,
+                               border = "TopBottomLeftRight", borderStyle = "thin",
+                               fgFill = "#CCFFCC")
+  yellow_style <- createStyle(halign = "center", valign = "center", fontSize = 11,
+                               border = "TopBottomLeftRight", borderStyle = "thin",
+                               fgFill = "#FFFF99")
+  red_style    <- createStyle(halign = "center", valign = "center", fontSize = 11,
+                               border = "TopBottomLeftRight", borderStyle = "thin",
+                               fgFill = "#FFCCCC")
+  plain_style  <- createStyle(halign = "center", valign = "center", fontSize = 11,
+                               border = "TopBottomLeftRight", borderStyle = "thin")
+
+  for (col_idx in 2:ncol(df)) {
+    for (row_idx in seq_len(nrow(df))) {
+      val <- df[[col_idx]][row_idx]
+      if (is.na(val) || val == 1) {
+        style <- plain_style
+      } else if (abs(val) > 0.6) {
+        style <- green_style
+      } else if (abs(val) >= 0.4) {
+        style <- yellow_style
+      } else {
+        style <- red_style
+      }
+      addStyle(wb, sheet = sheet, style = style,
+               rows = row_idx + 1, cols = col_idx)
+    }
+  }
+
+  setColWidths(wb, sheet = sheet, cols = 1:ncol(df), widths = 15)
+  saveWorkbook(wb, filepath, overwrite = TRUE)
+}
+
 
 summarize_column <- function(df, column_name) {
   df %>%
@@ -1653,7 +1710,7 @@ cor_spearman%>%
 
 tableForPaper <- cor_spearman
 
-write_paper_table(tableForPaper, file.path(finalTablesFolder, "Table7_correlations_household.xlsx"))
+write_correlation_table(tableForPaper, file.path(finalTablesFolder, "Table7_correlations_household.xlsx"))
 
 
 
@@ -1950,7 +2007,7 @@ print(cor_spearman)
 tableForPaper <- cor_spearman %>% as.data.frame() %>%
     rownames_to_column(var = "variable")
 
-write_paper_table(tableForPaper, file.path(finalTablesFolder, "Table6_correlations_district.xlsx"))
+write_correlation_table(tableForPaper, file.path(finalTablesFolder, "Table6_correlations_district.xlsx"))
 
 
 # ## Correlations (DIEM district-level means post 2022) 
