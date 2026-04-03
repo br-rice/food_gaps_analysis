@@ -3669,9 +3669,12 @@ dataForExcel <- tableWithRanges %>%
 dataForExcel <- tableWithRanges %>%
   select(country_title, IPC_phase, population_inPhase,
          `Gap mill. kcal`, `Calorie gap by phase (FGT index)`, `Gap MT cereal`) %>%
+  mutate(population_numeric = parse_number(as.character(population_inPhase))) %>%
+  filter(population_numeric > 0) %>%
+  select(-population_numeric) %>%
   rename(
-    Country = country_title,
-    Phase = IPC_phase,
+    "Name of IPC analysis" = country_title,
+    Phase        = IPC_phase,
     "No. people" = population_inPhase
   )
 
@@ -3683,13 +3686,16 @@ write_paper_table(dataForExcel, file.path(finalTablesFolder, "AppendixA2_deficit
 
 
 dataForExcel <- tableWithRanges %>%
-  select(country_title, IPC_phase, population_inPhase, 
+  select(country_title, IPC_phase, population_inPhase,
          `Total gap mill. kcal`, `Calorie gap (FGT index)`, `Total gap MT cereal`) %>%
   group_by(country_title) %>% slice(1) %>% ungroup() %>% select(-IPC_phase) %>%
+  mutate(population_numeric = parse_number(as.character(population_inPhase))) %>%
+  filter(population_numeric > 0) %>%
+  select(-population_numeric) %>%
   rename(
-    Country = country_title,
-    "No. people" = population_inPhase
-  ) 
+    "Name of IPC analysis" = country_title,
+    "No. people"           = population_inPhase
+  )
 # export to excel final file..............................................
 
 
