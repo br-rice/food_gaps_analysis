@@ -2300,21 +2300,47 @@ overall_matched <- summarize_overall(IPCDIEM_hh           %>% filter(adm0_name %
 
 appendix_comparison <- bind_rows(overall_full, overall_matched, full_summary, matched_summary) %>%
   arrange(adm0_name == "Overall", adm0_name, sample) %>%
-  mutate(
-    fcs  = paste0(fcs_mean,        " (", fcs_sd,        ")"),
-    hdds = paste0(hdds_score_mean, " (", hdds_score_sd, ")"),
-    hhs  = paste0(hhs_mean,        " (", hhs_sd,        ")"),
-    rcsi = paste0(rcsi_score_mean, " (", rcsi_score_sd, ")")
-  ) %>%
   select(adm0_name, sample,
-         fcs, fcs_n, hdds, hdds_score_n, hhs, hhs_n, rcsi, rcsi_score_n) %>%
+         fcs_mean, fcs_sd,
+         hdds_score_mean, hdds_score_sd,
+         hhs_mean, hhs_sd,
+         rcsi_score_mean, rcsi_score_sd) %>%
+  pivot_wider(
+    names_from  = sample,
+    values_from = c(fcs_mean, fcs_sd,
+                    hdds_score_mean, hdds_score_sd,
+                    hhs_mean, hhs_sd,
+                    rcsi_score_mean, rcsi_score_sd)
+  ) %>%
+  select(
+    adm0_name,
+    "fcs_mean_Full DIEM",        "fcs_sd_Full DIEM",
+    "fcs_mean_Matched (IPC-DIEM)", "fcs_sd_Matched (IPC-DIEM)",
+    "hdds_score_mean_Full DIEM", "hdds_score_sd_Full DIEM",
+    "hdds_score_mean_Matched (IPC-DIEM)", "hdds_score_sd_Matched (IPC-DIEM)",
+    "hhs_mean_Full DIEM",        "hhs_sd_Full DIEM",
+    "hhs_mean_Matched (IPC-DIEM)", "hhs_sd_Matched (IPC-DIEM)",
+    "rcsi_score_mean_Full DIEM", "rcsi_score_sd_Full DIEM",
+    "rcsi_score_mean_Matched (IPC-DIEM)", "rcsi_score_sd_Matched (IPC-DIEM)"
+  ) %>%
   rename(
-    Country  = adm0_name,
-    Sample   = sample,
-    FCS      = fcs,  "FCS N"  = fcs_n,
-    HDDS     = hdds, "HDDS N" = hdds_score_n,
-    HHS      = hhs,  "HHS N"  = hhs_n,
-    rCSI     = rcsi, "rCSI N" = rcsi_score_n
+    Country                  = adm0_name,
+    "FCS mean (full)"        = "fcs_mean_Full DIEM",
+    "FCS SD (full)"          = "fcs_sd_Full DIEM",
+    "FCS mean (matched)"     = "fcs_mean_Matched (IPC-DIEM)",
+    "FCS SD (matched)"       = "fcs_sd_Matched (IPC-DIEM)",
+    "HDDS mean (full)"       = "hdds_score_mean_Full DIEM",
+    "HDDS SD (full)"         = "hdds_score_sd_Full DIEM",
+    "HDDS mean (matched)"    = "hdds_score_mean_Matched (IPC-DIEM)",
+    "HDDS SD (matched)"      = "hdds_score_sd_Matched (IPC-DIEM)",
+    "HHS mean (full)"        = "hhs_mean_Full DIEM",
+    "HHS SD (full)"          = "hhs_sd_Full DIEM",
+    "HHS mean (matched)"     = "hhs_mean_Matched (IPC-DIEM)",
+    "HHS SD (matched)"       = "hhs_sd_Matched (IPC-DIEM)",
+    "rCSI mean (full)"       = "rcsi_score_mean_Full DIEM",
+    "rCSI SD (full)"         = "rcsi_score_sd_Full DIEM",
+    "rCSI mean (matched)"    = "rcsi_score_mean_Matched (IPC-DIEM)",
+    "rCSI SD (matched)"      = "rcsi_score_sd_Matched (IPC-DIEM)"
   )
 
 write_paper_table(appendix_comparison,
