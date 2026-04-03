@@ -31,6 +31,42 @@ outputVizInOutputFolder <- "C:/Users/BRICE/IFPRI Dropbox/Brendan Rice/DIEM_IPC_a
 finalTablesFolder <- "C:/Users/BRICE/IFPRI Dropbox/Brendan Rice/DIEM_IPC_analysis/Output/PlotsTablesForPaper_final"
 if (!dir.exists(finalTablesFolder)) dir.create(finalTablesFolder, recursive = TRUE)
 
+# Helper: export a data frame to Excel matching the paper's table style
+# Style: 11pt throughout; headers bold + centered; body first col left-aligned,
+# remaining cols centered; thin black borders on all cells; no background shading.
+write_paper_table <- function(df, filepath, sheet = "Sheet1") {
+  wb <- createWorkbook()
+  addWorksheet(wb, sheet)
+  writeData(wb, sheet = sheet, x = df, startCol = 1, startRow = 1,
+            colNames = TRUE, rowNames = FALSE)
+
+  header_style <- createStyle(
+    textDecoration = "bold", halign = "center", valign = "center",
+    wrapText = TRUE, fontSize = 11,
+    border = "TopBottomLeftRight", borderStyle = "thin"
+  )
+  addStyle(wb, sheet = sheet, style = header_style,
+           rows = 1, cols = 1:ncol(df), gridExpand = TRUE)
+
+  first_col_style <- createStyle(
+    halign = "left", valign = "center", fontSize = 11,
+    border = "TopBottomLeftRight", borderStyle = "thin"
+  )
+  addStyle(wb, sheet = sheet, style = first_col_style,
+           rows = 2:(nrow(df) + 1), cols = 1, gridExpand = TRUE)
+
+  if (ncol(df) > 1) {
+    body_style <- createStyle(
+      halign = "center", valign = "center", fontSize = 11,
+      border = "TopBottomLeftRight", borderStyle = "thin"
+    )
+    addStyle(wb, sheet = sheet, style = body_style,
+             rows = 2:(nrow(df) + 1), cols = 2:ncol(df), gridExpand = TRUE)
+  }
+
+  setColWidths(wb, sheet = sheet, cols = 1:ncol(df), widths = 15)
+  saveWorkbook(wb, filepath, overwrite = TRUE)
+}
 
 
 summarize_column <- function(df, column_name) {
@@ -142,7 +178,7 @@ del <- describingIPC_DIEM %>%
 
 # write_xlsx(del, file.path(outputVizInOutputFolder, "descriptives_table1_matched_districts_by_phase.xlsx"))
 
-write.xlsx(del, file.path(finalTablesFolder, "Table6_matched_areas_by_phase.xlsx"), overwrite = TRUE)
+write_paper_table(del, file.path(finalTablesFolder, "Table6_matched_areas_by_phase.xlsx"))
 
 del <- describingIPC_DIEM %>%
   group_by(adm0_name) %>%
@@ -159,7 +195,7 @@ del <- describingIPC_DIEM %>%
 
 # write_xlsx(del, file.path(outputVizInOutputFolder, "descriptives_table2_matched_districts_by_phase.xlsx"))
 
-write.xlsx(del, file.path(finalTablesFolder, "Table8_matched_areas_by_country.xlsx"), overwrite = TRUE)
+write_paper_table(del, file.path(finalTablesFolder, "Table8_matched_areas_by_country.xlsx"))
 
 # by time
 del <- describingIPC_DIEM %>%
@@ -174,7 +210,7 @@ del <- describingIPC_DIEM %>%
 
 # write_xlsx(del, file.path(outputVizInOutputFolder, "descriptives_table3_matched_districts_by_phase.xlsx"))
 
-write.xlsx(del, file.path(finalTablesFolder, "Table7_time_coverage.xlsx"), overwrite = TRUE)
+write_paper_table(del, file.path(finalTablesFolder, "Table7_time_coverage.xlsx"))
 
 
 
@@ -1560,7 +1596,7 @@ toShow %>%
 
   
 
-write.xlsx(toShow, file.path(finalTablesFolder, "Table11_indicator_means_by_phase.xlsx"), overwrite = TRUE)
+write_paper_table(toShow, file.path(finalTablesFolder, "Table11_indicator_means_by_phase.xlsx"))
 
 
 
@@ -1594,7 +1630,7 @@ cor_spearman%>%
 
 tableForPaper<- cor_spearman
 
-write.xlsx(cor_spearman, file.path(outputVizInOutputFolder, "correlations_household_allData.xlsx"), overwrite = TRUE)
+write_paper_table(cor_spearman, file.path(outputVizInOutputFolder, "correlations_household_allData.xlsx"))
 
 
 
@@ -1624,77 +1660,9 @@ cor_spearman%>%
 
 #export to excel............................
 
-tableForPaper<- cor_spearman
+tableForPaper <- cor_spearman
 
-# Define path
-excel_file <- file.path(finalTablesFolder, "Table10_correlations_household.xlsx")
-
-# Create workbook and worksheet
-wb <- createWorkbook()
-addWorksheet(wb, "Base table")
-
-# Write plain data
-writeData(
-  wb,
-  sheet = "Base table",
-  x = tableForPaper,
-  startCol = 1,
-  startRow = 1,
-  colNames = TRUE,
-  rowNames = FALSE
-)
-
-# Header style: bold, centered, wrapped
-header_style <- createStyle(
-  textDecoration = "bold",
-  halign = "center",
-  valign = "center",
-  wrapText = TRUE,
-  fontSize = 11
-)
-addStyle(
-  wb,
-  sheet = "Base table",
-  style = header_style,
-  rows = 1,
-  cols = 1:ncol(tableForPaper),
-  gridExpand = TRUE
-)
-
-# Body style: center-align
-body_style <- createStyle(
-  halign = "center",
-  valign = "center"
-)
-addStyle(
-  wb,
-  sheet = "Base table",
-  style = body_style,
-  rows = 2:(nrow(tableForPaper) + 1),
-  cols = 1:ncol(tableForPaper),
-  gridExpand = TRUE
-)
-
-# 🔲 Border style: thin border around all cells (including headers)
-border_style <- createStyle(
-  border = "TopBottomLeftRight",
-  borderStyle = "thin"
-)
-addStyle(
-  wb,
-  sheet = "Base table",
-  style = border_style,
-  rows = 1:(nrow(tableForPaper) + 1),
-  cols = 1:ncol(tableForPaper),
-  gridExpand = TRUE,
-  stack = TRUE  # Preserve previous styles
-)
-
-# Set compact column widths
-setColWidths(wb, sheet = "Base table", cols = 1:ncol(tableForPaper), widths = 15)
-
-# Save the workbook
-saveWorkbook(wb, excel_file, overwrite = TRUE)
+write_paper_table(tableForPaper, file.path(finalTablesFolder, "Table10_correlations_household.xlsx"))
 
 
 
@@ -1988,78 +1956,10 @@ variablesForCorrelation <- na.omit(variablesForCorrelation)
 cor_spearman <- cor(variablesForCorrelation, method = "spearman")
 print(cor_spearman) 
 
-tableForPaper<- cor_spearman %>% as.data.frame()%>%
+tableForPaper <- cor_spearman %>% as.data.frame() %>%
     rownames_to_column(var = "variable")
 
-# Define path
-excel_file <- file.path(finalTablesFolder, "Table9_correlations_district.xlsx")
-
-# Create workbook and worksheet
-wb <- createWorkbook()
-addWorksheet(wb, "Base table")
-
-# Write plain data
-writeData(
-  wb,
-  sheet = "Base table",
-  x = tableForPaper,
-  startCol = 1,
-  startRow = 1,
-  colNames = TRUE,
-  rowNames = FALSE
-)
-
-# Header style: bold, centered, wrapped
-header_style <- createStyle(
-  textDecoration = "bold",
-  halign = "center",
-  valign = "center",
-  wrapText = TRUE,
-  fontSize = 11
-)
-addStyle(
-  wb,
-  sheet = "Base table",
-  style = header_style,
-  rows = 1,
-  cols = 1:ncol(tableForPaper),
-  gridExpand = TRUE
-)
-
-# Body style: center-align
-body_style <- createStyle(
-  halign = "center",
-  valign = "center"
-)
-addStyle(
-  wb,
-  sheet = "Base table",
-  style = body_style,
-  rows = 2:(nrow(tableForPaper) + 1),
-  cols = 1:ncol(tableForPaper),
-  gridExpand = TRUE
-)
-
-# 🔲 Border style: thin border around all cells (including headers)
-border_style <- createStyle(
-  border = "TopBottomLeftRight",
-  borderStyle = "thin"
-)
-addStyle(
-  wb,
-  sheet = "Base table",
-  style = border_style,
-  rows = 1:(nrow(tableForPaper) + 1),
-  cols = 1:ncol(tableForPaper),
-  gridExpand = TRUE,
-  stack = TRUE  # Preserve previous styles
-)
-
-# Set compact column widths
-setColWidths(wb, sheet = "Base table", cols = 1:ncol(tableForPaper), widths = 15)
-
-# Save the workbook
-saveWorkbook(wb, excel_file, overwrite = TRUE)
+write_paper_table(tableForPaper, file.path(finalTablesFolder, "Table9_correlations_district.xlsx"))
 
 
 # ## Correlations (DIEM district-level means post 2022) 
@@ -2089,78 +1989,10 @@ variablesForCorrelation <- na.omit(variablesForCorrelation)
 cor_spearman <- cor(variablesForCorrelation, method = "spearman")
 print(cor_spearman) 
 
-tableForPaper<- cor_spearman %>% as.data.frame()%>%
+tableForPaper <- cor_spearman %>% as.data.frame() %>%
     rownames_to_column(var = "variable")
 
-# Define path
-excel_file <- file.path(outputVizInOutputFolder, "table_correlations_district_post2022.xlsx")
-
-# Create workbook and worksheet
-wb <- createWorkbook()
-addWorksheet(wb, "Base table")
-
-# Write plain data
-writeData(
-  wb,
-  sheet = "Base table",
-  x = tableForPaper,
-  startCol = 1,
-  startRow = 1,
-  colNames = TRUE,
-  rowNames = FALSE
-)
-
-# Header style: bold, centered, wrapped
-header_style <- createStyle(
-  textDecoration = "bold",
-  halign = "center",
-  valign = "center",
-  wrapText = TRUE,
-  fontSize = 11
-)
-addStyle(
-  wb,
-  sheet = "Base table",
-  style = header_style,
-  rows = 1,
-  cols = 1:ncol(tableForPaper),
-  gridExpand = TRUE
-)
-
-# Body style: center-align
-body_style <- createStyle(
-  halign = "center",
-  valign = "center"
-)
-addStyle(
-  wb,
-  sheet = "Base table",
-  style = body_style,
-  rows = 2:(nrow(tableForPaper) + 1),
-  cols = 1:ncol(tableForPaper),
-  gridExpand = TRUE
-)
-
-# 🔲 Border style: thin border around all cells (including headers)
-border_style <- createStyle(
-  border = "TopBottomLeftRight",
-  borderStyle = "thin"
-)
-addStyle(
-  wb,
-  sheet = "Base table",
-  style = border_style,
-  rows = 1:(nrow(tableForPaper) + 1),
-  cols = 1:ncol(tableForPaper),
-  gridExpand = TRUE,
-  stack = TRUE  # Preserve previous styles
-)
-
-# Set compact column widths
-setColWidths(wb, sheet = "Base table", cols = 1:ncol(tableForPaper), widths = 15)
-
-# Save the workbook
-saveWorkbook(wb, excel_file, overwrite = TRUE)
+write_paper_table(tableForPaper, file.path(outputVizInOutputFolder, "table_correlations_district_post2022.xlsx"))
 
 
 
@@ -2333,9 +2165,8 @@ summary_table <- map_dfr(vars_to_summarize, ~summarize_var(dataToSummarize, .x))
 
 summary_table
 
-write.xlsx(summary_table, 
-           file.path(outputVizInOutputFolder, "table_indicatorMeansnormalized_descriptives_IPCDIEMhh.xlsx"), 
-           overwrite = TRUE)
+write_paper_table(summary_table,
+           file.path(outputVizInOutputFolder, "table_indicatorMeansnormalized_descriptives_IPCDIEMhh.xlsx"))
 
 
 # testing the max min normalization formulats
@@ -3171,7 +3002,7 @@ indicatorGapsByPhaseOnly <- byPhaseGap_FCS %>%
   bind_rows(indicatorGapsByIndicatorOnly)
 
 
-write.xlsx(indicatorGapsByPhaseOnly, file.path(finalTablesFolder, "Table12_FGT_indices_by_phase.xlsx"), overwrite = TRUE)
+write_paper_table(indicatorGapsByPhaseOnly, file.path(finalTablesFolder, "Table12_FGT_indices_by_phase.xlsx"))
 
 
 
@@ -3289,7 +3120,7 @@ gaps_Table_fcs <- gaps_Table_1 %>%
     names_prefix = "IPC phase "
     ) 
 
-write.xlsx(gaps_Table_fcs, file.path(finalTablesFolder, "Table14_FCS_cost_by_country.xlsx"), overwrite = TRUE)
+write_paper_table(gaps_Table_fcs, file.path(finalTablesFolder, "Table14_FCS_cost_by_country.xlsx"))
 
 # now on to the RCSI table------------------------------------------------------------------
 gaps_Table_rcsi <- gaps_Table_1 %>%
@@ -3342,7 +3173,7 @@ gapsTableTotalsUSDByCountry <- gaps_Table_1 %>%
   select(country_name, year, total_cost_annual_millionsUSD_usingFCSgaps:total_cost_annual_millionsUSD_usingHHSgaps) %>%
   group_by(country_name, year) %>% slice(1) %>% ungroup()
   
-write.xlsx(gapsTableTotalsUSDByCountry, file.path(finalTablesFolder, "Table15_all_indicator_costs.xlsx"), overwrite = TRUE)
+write_paper_table(gapsTableTotalsUSDByCountry, file.path(finalTablesFolder, "Table15_all_indicator_costs.xlsx"))
   
 
 
@@ -3362,9 +3193,8 @@ countries_fgtgaps <- IPCDIEM_hh %>%
 
 # export to excel
 
-write.xlsx(countries_fgtgaps, 
-           file.path(outputVizInOutputFolder, "table_fgtIndicatorGaps_by country.xlsx"), 
-           overwrite = TRUE)
+write_paper_table(countries_fgtgaps,
+           file.path(outputVizInOutputFolder, "table_fgtIndicatorGaps_by country.xlsx"))
 
 
 
@@ -3474,7 +3304,7 @@ indicatorGapsByPhase_hhs <- indicatorGapsByPhase %>%
 
 
 
-write.xlsx(indicatorGapsByPhase_fcs, file.path(finalTablesFolder, "Table13_FCS_FGT_by_country_phase.xlsx"), overwrite = TRUE)
+write_paper_table(indicatorGapsByPhase_fcs, file.path(finalTablesFolder, "Table13_FCS_FGT_by_country_phase.xlsx"))
 
 
 
@@ -3533,75 +3363,7 @@ tableForPaper <- IPCthresholds %>%
   slice(1:5)
 
 
-# Define path
-excel_file <- file.path(finalTablesFolder, "Table3_caloric_deficits_by_phase.xlsx")
-
-# Create workbook and worksheet
-wb <- createWorkbook()
-addWorksheet(wb, "Base table")
-
-# Write plain data
-writeData(
-  wb,
-  sheet = "Base table",
-  x = tableForPaper,
-  startCol = 1,
-  startRow = 1,
-  colNames = TRUE,
-  rowNames = FALSE
-)
-
-# Header style: bold, centered, wrapped
-header_style <- createStyle(
-  textDecoration = "bold",
-  halign = "center",
-  valign = "center",
-  wrapText = TRUE,
-  fontSize = 11
-)
-addStyle(
-  wb,
-  sheet = "Base table",
-  style = header_style,
-  rows = 1,
-  cols = 1:ncol(tableForPaper),
-  gridExpand = TRUE
-)
-
-# Body style: center-align
-body_style <- createStyle(
-  halign = "center",
-  valign = "center"
-)
-addStyle(
-  wb,
-  sheet = "Base table",
-  style = body_style,
-  rows = 2:(nrow(tableForPaper) + 1),
-  cols = 1:ncol(tableForPaper),
-  gridExpand = TRUE
-)
-
-# 🔲 Border style: thin border around all cells (including headers)
-border_style <- createStyle(
-  border = "TopBottomLeftRight",
-  borderStyle = "thin"
-)
-addStyle(
-  wb,
-  sheet = "Base table",
-  style = border_style,
-  rows = 1:(nrow(tableForPaper) + 1),
-  cols = 1:ncol(tableForPaper),
-  gridExpand = TRUE,
-  stack = TRUE  # Preserve previous styles
-)
-
-# Set compact column widths
-setColWidths(wb, sheet = "Base table", cols = 1:ncol(tableForPaper), widths = 15)
-
-# Save the workbook
-saveWorkbook(wb, excel_file, overwrite = TRUE)
+write_paper_table(tableForPaper, file.path(finalTablesFolder, "Table3_caloric_deficits_by_phase.xlsx"))
 
 
 
@@ -3743,84 +3505,16 @@ dataForExcel <- tableWithRanges %>%
     "No. people" = population_inPhase
   ) 
 
-# Define path
-excel_file <- file.path(finalTablesFolder, "Table4_deficits_by_country_phase.xlsx")
-
-# Create workbook and worksheet
-wb <- createWorkbook()
-addWorksheet(wb, "table")
-
 dataForExcel <- tableWithRanges %>%
- select(country_title, IPC_phase, population_inPhase, 
-         `Gap mill. kcal`,  `Calorie gap by phase (FGT index)`, `Gap MT cereal`) %>%
+  select(country_title, IPC_phase, population_inPhase,
+         `Gap mill. kcal`, `Calorie gap by phase (FGT index)`, `Gap MT cereal`) %>%
   rename(
     Country = country_title,
     Phase = IPC_phase,
     "No. people" = population_inPhase
-  ) 
+  )
 
-# Write plain data
-writeData(
-  wb,
-  sheet = "table",
-  x = dataForExcel,
-  startCol = 1,
-  startRow = 1,
-  colNames = TRUE,
-  rowNames = FALSE
-)
-
-# Header style: bold, centered, wrapped
-header_style <- createStyle(
-  textDecoration = "bold",
-  halign = "center",
-  valign = "center",
-  wrapText = TRUE,
-  fontSize = 11
-)
-addStyle(
-  wb,
-  sheet = "table",
-  style = header_style,
-  rows = 1,
-  cols = 1:ncol(tableForPaper),
-  gridExpand = TRUE
-)
-
-# Body style: center-align
-body_style <- createStyle(
-  halign = "center",
-  valign = "center"
-)
-addStyle(
-  wb,
-  sheet = "table",
-  style = body_style,
-  rows = 2:(nrow(dataForExcel) + 1),
-  cols = 1:ncol(dataForExcel),
-  gridExpand = TRUE
-)
-
-# Borrder style: thin border around all cells (including headers)
-border_style <- createStyle(
-  border = "TopBottomLeftRight",
-  borderStyle = "thin"
-)
-addStyle(
-  wb,
-  sheet = "table",
-  style = border_style,
-  rows = 1:(nrow(dataForExcel) + 1),
-  cols = 1:ncol(dataForExcel),
-  gridExpand = TRUE,
-  stack = TRUE  # Preserve previous styles
-)
-
-# Set compact column widths
-setColWidths(wb, sheet = "table", cols = 1:ncol(dataForExcel), widths = 15)
-
-# Save the workbook
-saveWorkbook(wb, excel_file, overwrite = TRUE)
+write_paper_table(dataForExcel, file.path(finalTablesFolder, "Table4_deficits_by_country_phase.xlsx"))
 
 
 #=====================================================================================================
@@ -3838,77 +3532,7 @@ dataForExcel <- tableWithRanges %>%
 # export to excel final file..............................................
 
 
-# Define path
-excel_file <- file.path(finalTablesFolder, "Table5_food_assistance_by_country.xlsx")
-
-# Create workbook and worksheet
-wb <- createWorkbook()
-addWorksheet(wb, "table")
-
-
-
-# Write plain data
-writeData(
-  wb,
-  sheet = "table",
-  x = dataForExcel,
-  startCol = 1,
-  startRow = 1,
-  colNames = TRUE,
-  rowNames = FALSE
-)
-
-# Header style: bold, centered, wrapped
-header_style <- createStyle(
-  textDecoration = "bold",
-  halign = "center",
-  valign = "center",
-  wrapText = TRUE,
-  fontSize = 11
-)
-addStyle(
-  wb,
-  sheet = "table",
-  style = header_style,
-  rows = 1,
-  cols = 1:ncol(tableForPaper),
-  gridExpand = TRUE
-)
-
-# Body style: center-align
-body_style <- createStyle(
-  halign = "center",
-  valign = "center"
-)
-addStyle(
-  wb,
-  sheet = "table",
-  style = body_style,
-  rows = 2:(nrow(dataForExcel) + 1),
-  cols = 1:ncol(dataForExcel),
-  gridExpand = TRUE
-)
-
-# Border style: thin border around all cells (including headers)
-border_style <- createStyle(
-  border = "TopBottomLeftRight",
-  borderStyle = "thin"
-)
-addStyle(
-  wb,
-  sheet = "table",
-  style = border_style,
-  rows = 1:(nrow(dataForExcel) + 1),
-  cols = 1:ncol(dataForExcel),
-  gridExpand = TRUE,
-  stack = TRUE  # Preserve previous styles
-)
-
-# Set compact column widths
-setColWidths(wb, sheet = "table", cols = 1:ncol(dataForExcel), widths = 15)
-
-# Save the workbook
-saveWorkbook(wb, excel_file, overwrite = TRUE)
+write_paper_table(dataForExcel, file.path(finalTablesFolder, "Table5_food_assistance_by_country.xlsx"))
 
 
 #=============================================================================
