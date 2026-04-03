@@ -3542,7 +3542,7 @@ IPCcalculations <- IPCdataImported %>%
     IPC_phase == 5~ "IPC5")
   ) %>%
   #making it longer
-  select(-c(country_analysis_date,country_current_period_dates, IPC_phase,area_p3plus_percentage, adm_name: last_col())) %>%
+  select(-c(country_current_period_dates, IPC_phase,area_p3plus_percentage, adm_name: last_col())) %>%
   group_by(country_title) %>% slice(1) %>% ungroup() %>%
 
 #IPCcalculations %>% group_by(id) %>% count() %>% filter(n>1)
@@ -3632,15 +3632,13 @@ tableWithRanges <- tablePrep %>%
   mutate(country_title = str_remove(country_title, "Cadre Harmonisé")) %>%
   mutate(country_title = str_remove(country_title, "CH Analysis")) %>%
   filter(!str_detect(country_title, "displaced")) %>%
-  # keep only the most recent analysis per country
-  mutate(
-    country_name_clean = str_extract(country_title, "^[^-]+") %>% str_trim(),
-    year_analysis      = as.integer(str_extract(country_title, "\\d{4}"))
-  ) %>%
-  group_by(country_name_clean, IPC_phase) %>%
-  filter(year_analysis == max(year_analysis, na.rm = TRUE)) %>%
+  filter(year(country_analysis_date) >= 2023) %>%
+  # keep only the single most recent analysis per country (by exact date)
+  mutate(country_name_clean = str_extract(country_title, "^[^-]+") %>% str_trim()) %>%
+  group_by(country_name_clean) %>%
+  filter(country_analysis_date == max(country_analysis_date)) %>%
   ungroup() %>%
-  select(-country_name_clean, -year_analysis) %>%
+  select(-country_name_clean, -country_analysis_date) %>%
   rename(
     "Gap mill. kcal"                  = MillKcalNeeds_byPhase,
     "Total gap mill. kcal"            = totalGap_inmillKCal,
