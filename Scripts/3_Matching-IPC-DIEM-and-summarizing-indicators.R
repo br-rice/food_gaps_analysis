@@ -247,7 +247,7 @@ del <- describingIPC_DIEM %>%
     summarise(., adm0_name = "Total", across(where(is.numeric), sum))
   )
 
-write_paper_table(del, file.path(finalTablesFolder, "Table5_matched_areas_by_country.xlsx"))
+write_paper_table(del, file.path(finalTablesFolder, "Table1_matched_areas_by_country.xlsx"))
 
 # ---- matchedHHcountByCountry ----
 # Count of matched households by country and IPC phase
@@ -1644,71 +1644,79 @@ IPCDIEM_hh %>%
   )
 
 
-# #### ver with normalized values
-
 # ---- sum_normalized ----
-toShow <- IPCDIEM_hh %>%
-  select(OBJECTID, area_overall_phase, fcs, rcsi_score, hhs, hdds_score) %>%
-  ungroup()  %>%
-  group_by(OBJECTID) %>% slice(1) %>% ungroup() %>%
-  rename(id = OBJECTID) %>%
-  pivot_longer(
-    cols = 3:last_col(), 
-    names_to = "indicator", 
-    values_to = "value"
+# Table 6: Raw indicator means and SDs by IPC phase (household level, deduplicated by OBJECTID)
+toShow_base <- IPCDIEM_hh %>%
+  select(OBJECTID, area_overall_phase, fcs, hdds_score, rcsi_score,
+         any_of("fies_rawscore"), hhs) %>%
+  ungroup() %>%
+  group_by(OBJECTID) %>% slice(1) %>% ungroup()
+
+# Add FIES column of NAs if not present in dataset
+if (!"fies_rawscore" %in% names(toShow_base)) {
+  toShow_base <- toShow_base %>% mutate(fies_rawscore = NA_real_)
+}
+
+toShow <- toShow_base %>%
+  mutate(area_overall_phase = as.character(area_overall_phase)) %>%
+  group_by(area_overall_phase) %>%
+  summarize(
+    fcs_mean  = round(mean(fcs,          na.rm = TRUE), 1),
+    fcs_sd    = round(sd(fcs,            na.rm = TRUE), 1),
+    hdds_mean = round(mean(hdds_score,   na.rm = TRUE), 1),
+    hdds_sd   = round(sd(hdds_score,     na.rm = TRUE), 1),
+    rcsi_mean = round(mean(rcsi_score,   na.rm = TRUE), 1),
+    rcsi_sd   = round(sd(rcsi_score,     na.rm = TRUE), 1),
+    fies_mean = round(mean(fies_rawscore,na.rm = TRUE), 1),
+    fies_sd   = round(sd(fies_rawscore,  na.rm = TRUE), 1),
+    hhs_mean  = round(mean(hhs,          na.rm = TRUE), 1),
+    hhs_sd    = round(sd(hhs,            na.rm = TRUE), 1),
+    .groups = "drop"
   ) %>%
-  # mutate(value = case_when(
-  #   value == 0 ~ NA_real_,
-  #   TRUE ~ value
-  # )) %>%
-    group_by(indicator) %>%
-  mutate(
-    max_value = max(value, na.rm = TRUE),
-    min_value = min(value, na.rm = TRUE)
-  ) %>% ungroup() %>%
-  mutate(value_normalized = case_when(
-    indicator %in% c("lcsi", "hhs", "rcsi_score") ~ (value - min_value)/(max_value-min_value),
-    indicator %in% c("fcs", "hdds_score") ~ (value - max_value)/(min_value-max_value),
-    TRUE ~ -999999999)
+  bind_rows(
+    toShow_base %>%
+      summarize(
+        area_overall_phase = "Overall",
+        fcs_mean  = round(mean(fcs,          na.rm = TRUE), 1),
+        fcs_sd    = round(sd(fcs,            na.rm = TRUE), 1),
+        hdds_mean = round(mean(hdds_score,   na.rm = TRUE), 1),
+        hdds_sd   = round(sd(hdds_score,     na.rm = TRUE), 1),
+        rcsi_mean = round(mean(rcsi_score,   na.rm = TRUE), 1),
+        rcsi_sd   = round(sd(rcsi_score,     na.rm = TRUE), 1),
+        fies_mean = round(mean(fies_rawscore,na.rm = TRUE), 1),
+        fies_sd   = round(sd(fies_rawscore,  na.rm = TRUE), 1),
+        hhs_mean  = round(mean(hhs,          na.rm = TRUE), 1),
+        hhs_sd    = round(sd(hhs,            na.rm = TRUE), 1)
+      )
   ) %>%
-  select(id, area_overall_phase, indicator, value_normalized) %>%
-  pivot_wider(
-    names_from = indicator,
-    values_from = value_normalized
-  )  %>% select(-id) %>%
-  
-    group_by(area_overall_phase) %>%
-   summarize(
-    mean_fcs = mean(fcs, na.rm = TRUE),
-    sd_fcs = sd(fcs, na.rm = TRUE),
-    mean_rcsi = mean(rcsi_score, na.rm = TRUE),
-    sd_rcsi = sd(rcsi_score, na.rm = TRUE),
-    mean_hdds = mean(hdds_score, na.rm = TRUE),
-    sd_hdds = sd(hdds_score, na.rm = TRUE),
-    mean_hhs = mean(hhs, na.rm = TRUE),
-    sd_hhs = sd(hhs, na.rm = TRUE)  
-    )%>%
-  mutate(
-    fcs = sprintf("%.2f (%.2f)", mean_fcs, sd_fcs),
-    rcsi = sprintf("%.2f (%.2f)", mean_rcsi, sd_rcsi),
-    hhs = sprintf("%.2f (%.2f)", mean_hhs, sd_hhs),
-    hdds = sprintf("%.2f (%.2f)", mean_hdds, sd_hdds)
+  bind_rows(
+    tibble(
+      area_overall_phase = "Threshold",
+      fcs_mean = 35,  fcs_sd    = NA_real_,
+      hdds_mean = 3,  hdds_sd   = NA_real_,
+      rcsi_mean = 19, rcsi_sd   = NA_real_,
+      fies_mean = NA_real_, fies_sd = NA_real_,
+      hhs_mean  = 3,  hhs_sd    = NA_real_
+    )
   ) %>%
-  select(area_overall_phase, fcs, rcsi, hhs, hdds)
+  rename(
+    "IPC Phase" = area_overall_phase,
+    "FCS Mean"  = fcs_mean,  "FCS SD"  = fcs_sd,
+    "HDDS Mean" = hdds_mean, "HDDS SD" = hdds_sd,
+    "rCSI Mean" = rcsi_mean, "rCSI SD" = rcsi_sd,
+    "FIES Mean" = fies_mean, "FIES SD" = fies_sd,
+    "HHS Mean"  = hhs_mean,  "HHS SD"  = hhs_sd
+  )
 
 toShow %>%
   gt() %>%
-    tab_header(
-    title = "Indicator means (normalized values from hh-level data) summarized - among districts matched to IPC phases"
+  tab_header(
+    title = "Table 6: Indicator means by IPC phase (household level, raw values)"
   ) %>%
   tab_options(table.font.size = px(12)) %>%
-  tab_footnote(
-    footnote = "SD shown in parentheses."
-  )
+  tab_footnote(footnote = "SD shown in parentheses. FIES available for 2023+ data only.")
 
-  
-
-write_paper_table(toShow, file.path(finalTablesFolder, "Table8_indicator_means_by_phase.xlsx"))
+write_paper_table(toShow, file.path(finalTablesFolder, "Table6_indicator_means_by_phase.xlsx"))
 
 
 
@@ -1781,7 +1789,7 @@ cor_spearman%>%
 
 tableForPaper <- cor_spearman
 
-write_correlation_table(tableForPaper, file.path(finalTablesFolder, "Table7_correlations_household.xlsx"))
+write_correlation_table(tableForPaper, file.path(finalTablesFolder, "Table5b_correlations_household.xlsx"))
 
 
 
@@ -2126,7 +2134,7 @@ print(cor_spearman)
 tableForPaper <- cor_spearman %>% as.data.frame() %>%
     rownames_to_column(var = "variable")
 
-write_correlation_table(tableForPaper, file.path(finalTablesFolder, "Table6_correlations_district.xlsx"))
+write_correlation_table(tableForPaper, file.path(outputVizInOutputFolder, "Table6_correlations_district.xlsx"))
 
 
 # ## Correlations (DIEM district-level means post 2022) 
@@ -2256,7 +2264,7 @@ print(cor_spearman)
 
 tableForPaper <- cor_spearman %>% as.data.frame() %>%
     rownames_to_column(var = "variable")
-write_correlation_table(tableForPaper, file.path(finalTablesFolder, "Table_correlations_district_IPC3plus_kcalgap.xlsx"))
+write_correlation_table(tableForPaper, file.path(finalTablesFolder, "Table5a_correlations_district_IPC3plus_kcalgap.xlsx"))
 
 
 
@@ -2517,7 +2525,7 @@ appendix_comparison <- bind_rows(overall_full, overall_matched, full_summary, ma
   )
 
 write_paper_table(appendix_comparison,
-  file.path(finalTablesFolder, "AppendixA3_full_vs_matched_DIEM.xlsx"))
+  file.path(finalTablesFolder, "TableA5_full_vs_matched_DIEM.xlsx"))
 
 
 # ---- microData_2 ----
@@ -3271,7 +3279,7 @@ indicatorGapsByPhaseOnly <- byPhaseGap_FCS %>%
   bind_rows(indicatorGapsByIndicatorOnly)
 
 
-write_paper_table(indicatorGapsByPhaseOnly, file.path(finalTablesFolder, "Table9_FGT_indices_by_phase.xlsx"))
+write_paper_table(indicatorGapsByPhaseOnly, file.path(finalTablesFolder, "Table7_FGT_indices_by_phase.xlsx"))
 
 
 
@@ -3385,7 +3393,7 @@ gaps_Table_fcs <- gaps_Table_1 %>%
     names_glue = "{.value}_phase{ipcphase}"
   )
 
-write_paper_table(gaps_Table_fcs, file.path(finalTablesFolder, "Table11_FCS_cost_by_country.xlsx"))
+write_paper_table(gaps_Table_fcs, file.path(finalTablesFolder, "Table9_FCS_cost_by_country.xlsx"))
 
 # now on to the RCSI table------------------------------------------------------------------
 gaps_Table_rcsi <- gaps_Table_1 %>%
@@ -3438,7 +3446,17 @@ gapsTableTotalsUSDByCountry <- gaps_Table_1 %>%
   select(country_name, year, total_cost_annual_millionsUSD_usingFCSgaps:total_cost_annual_millionsUSD_usingHHSgaps) %>%
   group_by(country_name, year) %>% slice(1) %>% ungroup()
   
-write_paper_table(gapsTableTotalsUSDByCountry, file.path(finalTablesFolder, "Table12_all_indicator_costs.xlsx"))
+gapsTableTotalsUSDByCountry <- gapsTableTotalsUSDByCountry %>%
+  rename(
+    Country = country_name,
+    Year    = year,
+    "Cost using FCS gaps (mill. USD)"  = total_cost_annual_millionsUSD_usingFCSgaps,
+    "Cost using RCSI gaps (mill. USD)" = total_cost_annual_millionsUSD_usingRCSIgaps,
+    "Cost using HDDS gaps (mill. USD)" = total_cost_annual_millionsUSD_usingHDDSgaps,
+    "Cost using HHS gaps (mill. USD)"  = total_cost_annual_millionsUSD_usingHHSgaps
+  )
+
+write_paper_table(gapsTableTotalsUSDByCountry, file.path(finalTablesFolder, "Table10_all_indicator_costs.xlsx"))
   
 
 
@@ -3463,7 +3481,7 @@ write_paper_table(countries_fgtgaps,
 
 # AppendixA3.1: all-indicator FGT by country (collapsed across phases)
 write_paper_table(countries_fgtgaps,
-           file.path(finalTablesFolder, "AppendixA3_1_FGT_by_country.xlsx"))
+           file.path(finalTablesFolder, "AppendixA3_FGT_by_country.xlsx"))
 
 
 
@@ -3537,7 +3555,7 @@ indicatorGapsByPhase_hhs <- indicatorGapsByPhase %>%
 
 
 
-write_paper_table(indicatorGapsByPhase_fcs, file.path(finalTablesFolder, "Table10_FCS_FGT_by_country_phase.xlsx"))
+write_paper_table(indicatorGapsByPhase_fcs, file.path(finalTablesFolder, "Table8_FCS_FGT_by_country_phase.xlsx"))
 
 
 # AppendixA3.2: All-indicator FGT by country × phase (phases 3 and 4), separate columns
@@ -3549,7 +3567,7 @@ AppendixA3_2 <- indicatorGapsByPhase %>%
     hhs_FGT0_phase3, hhs_FGT1_phase3, hhs_FGT0_phase4, hhs_FGT1_phase4
   )
 
-write_paper_table(AppendixA3_2, file.path(finalTablesFolder, "AppendixA3_2_FGT_by_country_phase.xlsx"))
+write_paper_table(AppendixA3_2, file.path(finalTablesFolder, "TableA4_FGT_by_country_phase.xlsx"))
 
 
 
