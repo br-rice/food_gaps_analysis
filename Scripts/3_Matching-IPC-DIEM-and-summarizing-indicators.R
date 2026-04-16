@@ -1839,30 +1839,70 @@ cor_spearman <- cor(variablesForCorrelation, method = "spearman") %>%
 # Assuming your main data has `admin0` and the food security vars
 admin_list <- unique(DIEM_FoodSecurity_HH$adm0_name)
 
+# Build multi-sheet workbook for per-country correlations
+wb_country_corr <- createWorkbook()
+
+# Styles for conditional shading (matching write_correlation_table)
+cc_header  <- createStyle(textDecoration = "bold", halign = "center", valign = "center",
+                          wrapText = TRUE, fontSize = 11,
+                          border = "TopBottomLeftRight", borderStyle = "thin")
+cc_first   <- createStyle(halign = "left", valign = "center", fontSize = 11,
+                          border = "TopBottomLeftRight", borderStyle = "thin")
+cc_green   <- createStyle(halign = "center", valign = "center", fontSize = 11,
+                          border = "TopBottomLeftRight", borderStyle = "thin", fgFill = "#CCFFCC")
+cc_yellow  <- createStyle(halign = "center", valign = "center", fontSize = 11,
+                          border = "TopBottomLeftRight", borderStyle = "thin", fgFill = "#FFFF99")
+cc_red     <- createStyle(halign = "center", valign = "center", fontSize = 11,
+                          border = "TopBottomLeftRight", borderStyle = "thin", fgFill = "#FFCCCC")
+cc_plain   <- createStyle(halign = "center", valign = "center", fontSize = 11,
+                          border = "TopBottomLeftRight", borderStyle = "thin")
+
 for (adm in admin_list) {
   message("Processing: ", adm)
-  
+
   # Filter for this admin0
   data_sub <- DIEM_FoodSecurity_HH %>%
     filter(adm0_name == adm) %>%
     select(fcs:rcsi_score) %>%
+    select(-lcsi) %>%
     na.omit()
-  
+
   # Skip empty subsets
   if (nrow(data_sub) == 0) next
-  
-  # Compute correlation and make gt table
-  cor_table <- cor(data_sub, method = "spearman") %>%
+
+  # Compute correlation
+  cor_df <- cor(data_sub, method = "spearman") %>%
     as.data.frame() %>%
-    rownames_to_column("Variable") %>%
+    rownames_to_column("Variable")
+
+  # Print gt table
+  cor_df %>%
     gt() %>%
     fmt_number(columns = where(is.numeric), decimals = 2) %>%
-    tab_header(
-      title = md(paste0("**Spearman Correlation Matrix – ", adm, "**"))
-    )
-  
-  print(cor_table)
+    tab_header(title = md(paste0("**Spearman Correlation Matrix – ", adm, "**"))) %>%
+    print()
+
+  # Add sheet (Excel sheet names max 31 chars)
+  sheet_name <- substr(adm, 1, 31)
+  addWorksheet(wb_country_corr, sheet_name)
+  writeData(wb_country_corr, sheet = sheet_name, x = cor_df, startRow = 1, colNames = TRUE)
+  addStyle(wb_country_corr, sheet = sheet_name, style = cc_header,
+           rows = 1, cols = 1:ncol(cor_df), gridExpand = TRUE)
+  addStyle(wb_country_corr, sheet = sheet_name, style = cc_first,
+           rows = 2:(nrow(cor_df) + 1), cols = 1)
+  for (col_idx in 2:ncol(cor_df)) {
+    for (row_idx in seq_len(nrow(cor_df))) {
+      val <- cor_df[[col_idx]][row_idx]
+      sty <- if (is.na(val) || val == 1) cc_plain else if (abs(val) > 0.6) cc_green else if (abs(val) >= 0.4) cc_yellow else cc_red
+      addStyle(wb_country_corr, sheet = sheet_name, style = sty, rows = row_idx + 1, cols = col_idx)
+    }
+  }
+  setColWidths(wb_country_corr, sheet = sheet_name, cols = 1:ncol(cor_df), widths = 15)
 }
+
+saveWorkbook(wb_country_corr,
+             file.path(finalTablesFolder, "AppendixA_correlations_by_country.xlsx"),
+             overwrite = TRUE)
 
 
 
@@ -3335,18 +3375,14 @@ gaps_Table_1 <- IPCdata_forIndicatorGaps %>%
 
 # now on to the FCS table------------------------------------------------------------------
 gaps_Table_fcs <- gaps_Table_1 %>%
-  mutate(
-    byPhaseValue = paste0("Pop: ", population, " | FCS gap: ", fgt1_FCS, " | Cost annual mill USD: ", round(cost_annual_millionsUSD_usingFCSgaps, 1))
-  ) %>%
-  
-  select(country_name, year, ipcphase, byPhaseValue, total_cost_annual_millionsUSD_usingFCSgaps) %>%
-  
-   pivot_wider(
-    id_cols = c(country_name, year, total_cost_annual_millionsUSD_usingFCSgaps),       
-    names_from = ipcphase,            
-    values_from = byPhaseValue,
-    names_prefix = "IPC phase "
-    ) 
+  select(country_name, year, ipcphase, population, fgt1_FCS,
+         cost_annual_millionsUSD_usingFCSgaps, total_cost_annual_millionsUSD_usingFCSgaps) %>%
+  pivot_wider(
+    id_cols = c(country_name, year, total_cost_annual_millionsUSD_usingFCSgaps),
+    names_from = ipcphase,
+    values_from = c(population, fgt1_FCS, cost_annual_millionsUSD_usingFCSgaps),
+    names_glue = "{.value}_phase{ipcphase}"
+  )
 
 write_paper_table(gaps_Table_fcs, file.path(finalTablesFolder, "Table11_FCS_cost_by_country.xlsx"))
 
@@ -3424,6 +3460,10 @@ countries_fgtgaps <- IPCDIEM_hh %>%
 write_paper_table(countries_fgtgaps,
            file.path(outputVizInOutputFolder, "table_fgtIndicatorGaps_by country.xlsx"))
 
+# AppendixA3.1: all-indicator FGT by country (collapsed across phases)
+write_paper_table(countries_fgtgaps,
+           file.path(finalTablesFolder, "AppendixA3_1_FGT_by_country.xlsx"))
+
 
 
 
@@ -3455,76 +3495,40 @@ indicatorGapsByPhase <- bind_rows(gap_FCS_byPhase, gap_RCSI_byPhase,gap_hdds_byP
 
 # now for fcs
 indicatorGapsByPhase_fcs <- indicatorGapsByPhase %>%
-  select(adm0_name, starts_with("FCS_")) %>%
-    select(
-    adm0_name,
+  select(adm0_name,
     FCS_FGT0_phase1, FCS_FGT1_phase1,
     FCS_FGT0_phase2, FCS_FGT1_phase2,
     FCS_FGT0_phase3, FCS_FGT1_phase3,
     FCS_FGT0_phase4, FCS_FGT1_phase4
-  ) %>%
-  mutate(
-    Phase_1_fcs = paste0("FGT0: ", FCS_FGT0_phase1, "  |  FCT1: ", FCS_FGT1_phase1),
-    Phase_2_fcs = paste0("FGT0: ", FCS_FGT0_phase2, "  |  FCT1: ", FCS_FGT1_phase2),
-    Phase_3_fcs = paste0("FGT0: ", FCS_FGT0_phase3, "  |  FCT1: ", FCS_FGT1_phase3),
-    Phase_4_fcs = paste0("FGT0: ", FCS_FGT0_phase4, "  |  FCT1: ", FCS_FGT1_phase4)
-  ) %>%
-  select(adm0_name,Phase_1_fcs, Phase_2_fcs, Phase_3_fcs, Phase_4_fcs )
+  )
 
 # now for rcsi
 indicatorGapsByPhase_rcsi <- indicatorGapsByPhase %>%
-  select(adm0_name, starts_with("rcsi_")) %>%
-    select(
-    adm0_name,
+  select(adm0_name,
     rcsi_FGT0_phase1, rcsi_FGT1_phase1,
     rcsi_FGT0_phase2, rcsi_FGT1_phase2,
     rcsi_FGT0_phase3, rcsi_FGT1_phase3,
     rcsi_FGT0_phase4, rcsi_FGT1_phase4
-  ) %>%
-  mutate(
-    Phase_1_rcsi = paste0("FGT0: ", rcsi_FGT0_phase1, "  |  FCT1: ", rcsi_FGT1_phase1),
-    Phase_2_rcsi = paste0("FGT0: ", rcsi_FGT0_phase2, "  |  FCT1: ", rcsi_FGT1_phase2),
-    Phase_3_rcsi = paste0("FGT0: ", rcsi_FGT0_phase3, "  |  FCT1: ", rcsi_FGT1_phase3),
-    Phase_4_rcsi = paste0("FGT0: ", rcsi_FGT0_phase4, "  |  FCT1: ", rcsi_FGT1_phase4)
-  ) %>%
-  select(adm0_name,Phase_1_rcsi, Phase_2_rcsi, Phase_3_rcsi, Phase_4_rcsi )
+  )
 
 
 # now for hdds
 indicatorGapsByPhase_hdds <- indicatorGapsByPhase %>%
-  select(adm0_name, starts_with("hdds_")) %>%
-    select(
-    adm0_name,
+  select(adm0_name,
     hdds_FGT0_phase1, hdds_FGT1_phase1,
     hdds_FGT0_phase2, hdds_FGT1_phase2,
     hdds_FGT0_phase3, hdds_FGT1_phase3,
     hdds_FGT0_phase4, hdds_FGT1_phase4
-  ) %>%
-  mutate(
-    Phase_1_hdds = paste0("FGT0: ", hdds_FGT0_phase1, "  |  FCT1: ", hdds_FGT1_phase1),
-    Phase_2_hdds = paste0("FGT0: ", hdds_FGT0_phase2, "  |  FCT1: ", hdds_FGT1_phase2),
-    Phase_3_hdds = paste0("FGT0: ", hdds_FGT0_phase3, "  |  FCT1: ", hdds_FGT1_phase3),
-    Phase_4_hdds = paste0("FGT0: ", hdds_FGT0_phase4, "  |  FCT1: ", hdds_FGT1_phase4)
-  ) %>%
-  select(adm0_name,Phase_1_hdds, Phase_2_hdds, Phase_3_hdds, Phase_4_hdds )
+  )
 
 # now for hhs
 indicatorGapsByPhase_hhs <- indicatorGapsByPhase %>%
-  select(adm0_name, starts_with("hhs_")) %>%
-    select(
-    adm0_name,
+  select(adm0_name,
     hhs_FGT0_phase1, hhs_FGT1_phase1,
     hhs_FGT0_phase2, hhs_FGT1_phase2,
     hhs_FGT0_phase3, hhs_FGT1_phase3,
     hhs_FGT0_phase4, hhs_FGT1_phase4
-  ) %>%
-  mutate(
-    Phase_1_hhs = paste0("FGT0: ", hhs_FGT0_phase1, "  |  FCT1: ", hhs_FGT1_phase1),
-    Phase_2_hhs = paste0("FGT0: ", hhs_FGT0_phase2, "  |  FCT1: ", hhs_FGT1_phase2),
-    Phase_3_hhs = paste0("FGT0: ", hhs_FGT0_phase3, "  |  FCT1: ", hhs_FGT1_phase3),
-    Phase_4_hhs = paste0("FGT0: ", hhs_FGT0_phase4, "  |  FCT1: ", hhs_FGT1_phase4)
-  ) %>%
-  select(adm0_name,Phase_1_hhs, Phase_2_hhs, Phase_3_hhs, Phase_4_hhs )
+  )
 
 
 
@@ -3533,6 +3537,18 @@ indicatorGapsByPhase_hhs <- indicatorGapsByPhase %>%
 
 
 write_paper_table(indicatorGapsByPhase_fcs, file.path(finalTablesFolder, "Table10_FCS_FGT_by_country_phase.xlsx"))
+
+
+# AppendixA3.2: All-indicator FGT by country × phase (phases 3 and 4), separate columns
+AppendixA3_2 <- indicatorGapsByPhase %>%
+  select(adm0_name,
+    FCS_FGT0_phase3, FCS_FGT1_phase3, FCS_FGT0_phase4, FCS_FGT1_phase4,
+    rcsi_FGT0_phase3, rcsi_FGT1_phase3, rcsi_FGT0_phase4, rcsi_FGT1_phase4,
+    hdds_FGT0_phase3, hdds_FGT1_phase3, hdds_FGT0_phase4, hdds_FGT1_phase4,
+    hhs_FGT0_phase3, hhs_FGT1_phase3, hhs_FGT0_phase4, hhs_FGT1_phase4
+  )
+
+write_paper_table(AppendixA3_2, file.path(finalTablesFolder, "AppendixA3_2_FGT_by_country_phase.xlsx"))
 
 
 
