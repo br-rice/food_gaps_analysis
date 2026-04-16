@@ -247,6 +247,53 @@ del <- describingIPC_DIEM %>%
 
 write_paper_table(del, file.path(finalTablesFolder, "Table5_matched_areas_by_country.xlsx"))
 
+# ---- matchedHHcountByCountry ----
+# Count of matched households by country and IPC phase
+del_hh <- IPCDIEM_hh %>%
+  group_by(adm0_name) %>%
+  count(area_overall_phase, name = "n_households") %>%
+  ungroup() %>%
+  pivot_wider(names_from = area_overall_phase, values_from = n_households,
+              names_prefix = "IPC") %>%
+  select(adm0_name, any_of(c("IPC1", "IPC2", "IPC3", "IPC4"))) %>%
+  arrange(adm0_name) %>%
+  mutate(across(where(is.numeric), ~replace_na(., 0L))) %>%
+  bind_rows(
+    summarise(., adm0_name = "Total", across(where(is.numeric), sum))
+  ) %>%
+  rename(Country = adm0_name)
+
+write_paper_table(del_hh, file.path(finalTablesFolder, "Table1b_matched_households_by_country_and_phase.xlsx"))
+
+# ---- hhDataCompleteness ----
+# Share of matched households with no missing in ANY of FCS, HDDS, HHS, RCSI
+completeness_by_country <- IPCDIEM_hh %>%
+  mutate(all_complete = !is.na(fcs) & !is.na(hdds_score) & !is.na(hhs) & !is.na(rcsi_score)) %>%
+  group_by(adm0_name) %>%
+  summarise(
+    N_households = n(),
+    pct_complete = round(100 * mean(all_complete), 1),
+    .groups = "drop"
+  ) %>%
+  arrange(adm0_name)
+
+completeness_overall <- IPCDIEM_hh %>%
+  mutate(all_complete = !is.na(fcs) & !is.na(hdds_score) & !is.na(hhs) & !is.na(rcsi_score)) %>%
+  summarise(
+    adm0_name    = "Overall",
+    N_households = n(),
+    pct_complete = round(100 * mean(all_complete), 1)
+  )
+
+completeness_tbl <- bind_rows(completeness_by_country, completeness_overall) %>%
+  rename(
+    Country                             = adm0_name,
+    "N matched HH"                      = N_households,
+    "HH with complete data, all 4 indicators (%)" = pct_complete
+  )
+
+write_paper_table(completeness_tbl, file.path(finalTablesFolder, "Table_HH_data_completeness.xlsx"))
+
 # by time (appendix)
 del <- describingIPC_DIEM %>%
   group_by(year) %>%
@@ -3531,7 +3578,7 @@ IPCcalculations <- IPCdataImported %>%
   filter(country_name != "Lebanon") %>%
   select(-iso3) %>%
   mutate(country_title = paste(country_name, " - ", country_title)) %>%
-  select(-country_name) %>%
+  # keep country_name until after peak-analysis selection below
   # for the merging
   rename(IPC_phase = area_overall_phase) %>%
   mutate(IPC_phase = case_when(
@@ -3544,6 +3591,13 @@ IPCcalculations <- IPCdataImported %>%
   #making it longer
   select(-c(country_current_period_dates, IPC_phase,area_p3plus_percentage, adm_name: last_col())) %>%
   group_by(country_title) %>% slice(1) %>% ungroup() %>%
+  # select the analysis with the highest total population coverage per country
+  mutate(totalPopulationCovered = country_phase1_population + country_phase2_population +
+           country_phase3_population + country_phase4_population + country_phase5_population) %>%
+  group_by(country_name) %>%
+  slice_max(totalPopulationCovered, n = 1, with_ties = FALSE) %>%
+  ungroup() %>%
+  select(-country_name, -totalPopulationCovered) %>%
 
 #IPCcalculations %>% group_by(id) %>% count() %>% filter(n>1)
   pivot_longer(
@@ -3632,13 +3686,8 @@ tableWithRanges <- tablePrep %>%
   mutate(country_title = str_remove(country_title, "Cadre Harmonisé")) %>%
   mutate(country_title = str_remove(country_title, "CH Analysis")) %>%
   filter(!str_detect(country_title, "displaced")) %>%
-  filter(year(country_analysis_date) >= 2023) %>%
-  # keep only the single most recent analysis per country (by exact date)
-  mutate(country_name_clean = str_extract(country_title, "^[^-]+") %>% str_trim()) %>%
-  group_by(country_name_clean) %>%
-  filter(country_analysis_date == max(country_analysis_date)) %>%
-  ungroup() %>%
-  select(-country_name_clean, -country_analysis_date) %>%
+  # peak-analysis selection is now done in IPCcalculations; just drop the date column
+  select(-country_analysis_date) %>%
   rename(
     "Gap mill. kcal"                  = MillKcalNeeds_byPhase,
     "Total gap mill. kcal"            = totalGap_inmillKCal,
@@ -3680,12 +3729,20 @@ write_paper_table(dataForExcel, file.path(finalTablesFolder, "AppendixA2_deficit
 
 
 #=====================================================================================================
-#table 2
+#table 2 - food assistance for matched countries only
 
+# iso3 codes of countries in the matched IPC-DIEM dataset
+matched_iso3s <- unique(IPCDIEM_hh$iso3)
 
 dataForExcel <- tableWithRanges %>%
   select(country_title, IPC_phase, population_inPhase,
          `Total gap mill. kcal`, `Calorie gap (FGT index)`, `Total gap MT cereal`) %>%
+  mutate(
+    country_name_clean = str_extract(country_title, "^[^-]+") %>% str_trim(),
+    iso3_temp = countrycode(country_name_clean, origin = "country.name", destination = "iso3c")
+  ) %>%
+  filter(iso3_temp %in% matched_iso3s) %>%
+  select(-country_name_clean, -iso3_temp) %>%
   group_by(country_title) %>% slice(1) %>% ungroup() %>% select(-IPC_phase) %>%
   mutate(population_numeric = parse_number(as.character(population_inPhase))) %>%
   filter(population_numeric > 0) %>%
