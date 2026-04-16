@@ -527,6 +527,13 @@ write_paper_table(del, file.path(finalTablesFolder, "AppendixA1_time_coverage.xl
 # <hr>
 
 
+# Caloric deficit midpoints by IPC phase (midpoints used throughout script for calGap_FGT and IPCthresholds)
+IPC1_calDef <- 0
+IPC2_calDef <- 0
+IPC3_calDef <- 0.105   # midpoint of 1%-20%
+IPC4_calDef <- 0.355   # midpoint of 21%-50%
+IPC5_calDef <- 0.5     # user-specified
+
 # ---- dataMaching ----
 DIEM_FoodSecurity <- DIEM_FoodSecurityImported %>%
   mutate(start_dateForMatching_DIEM = coll_start_date %m-% months(5),
@@ -595,7 +602,15 @@ IPC_DIEM <- DIEM_FoodSecurity %>%
   rename(DIEM_startDate=coll_start_date,
          IPC_country_title = country_title,
          IPC_analysis_date = country_analysis_date,
-         IPC_current_period_dates = country_current_period_dates)
+         IPC_current_period_dates = country_current_period_dates) %>%
+  mutate(
+    # FGT1 kcal gap index: population-weighted avg caloric deficit across IPC phases
+    calGap_FGT = IPC1_calDef * area_phase1_percentage +
+                 IPC2_calDef * area_phase2_percentage +
+                 IPC3_calDef * area_phase3_percentage +
+                 IPC4_calDef * area_phase4_percentage +
+                 IPC5_calDef * area_phase5_percentage
+  )
 
 
 # id matched countries and rounds
@@ -1736,7 +1751,15 @@ write_paper_table(cor_spearman, file.path(outputVizInOutputFolder, "correlations
 # ###All observations (2023+ data)
 # This is so that we can include FIES in the correlation matrix
 # ---- cor_entirehhdata_2023+ ----
-variablesForCorrelation <- DIEM_FoodSecurity_HHPost2022 %>% 
+
+# Countries included in household-level correlation (Table7)
+cat("Countries in household-level correlation (Table7):\n")
+DIEM_FoodSecurity_HHPost2022 %>%
+  select(iso3) %>% distinct() %>%
+  mutate(country = countrycode(iso3, origin = "iso3c", destination = "country.name")) %>%
+  arrange(country) %>% pull(country) %>% paste(collapse = ", ") %>% cat("\n")
+
+variablesForCorrelation <- DIEM_FoodSecurity_HHPost2022 %>%
   select(fcs:rcsi_score, fies_rawscore)   %>% select(-lcsi)
   
 variablesForCorrelation <- na.omit(variablesForCorrelation)
@@ -2027,9 +2050,17 @@ cor_spearman <- cor(variablesForCorrelation, method = "pearson") %>%
 
 # ## Correlations (DIEM district-level means) 
 
-# This includes the entire DIAM dataset - so these are all district level values, not just those that are matched to IPC phase. This is the Sprearman rank correlation. 
+# This includes the entire DIAM dataset - so these are all district level values, not just those that are matched to IPC phase. This is the Sprearman rank correlation.
 # ---- correlation2 ----
-variablesForCorrelation <- DIEM_FoodSecurityImported %>% 
+
+# Countries included in district-level correlation (Table6)
+cat("Countries in district-level correlation (Table6):\n")
+DIEM_FoodSecurityImported %>%
+  select(iso3) %>% distinct() %>%
+  mutate(country = countrycode(iso3, origin = "iso3c", destination = "country.name")) %>%
+  arrange(country) %>% pull(country) %>% paste(collapse = ", ") %>% cat("\n")
+
+variablesForCorrelation <- DIEM_FoodSecurityImported %>%
   select(fies_rawscore_wmean, #p_mod_wmean, 
          fcs_wmean, rcsi_score_wmean, hdds_score_wmean,hhs_3: hhs_6)  %>%
    rowwise() %>%
@@ -2157,37 +2188,34 @@ print(cor_spearman)
 # Then the share of population by phase is multiplied by these assumed avg deficits and summed across phases to get the one value. 
 
 # ---- correlation5 ----
-# variablesForCorrelation <- IPC_DIEM %>%
-#     select(fies_rawscore_wmean,# p_mod_wmean, 
-#          fcs_wmean, rcsi_score_wmean, hdds_score_wmean,hhs_3: hhs_6, area_p3plus_percentage, calGap_FGT_lower, calGap_FGT_upper) %>%
-#    rowwise() %>%
-#   mutate(
-#     hhs_3plusPercentage = sum(c_across(hhs_3:hhs_6), na.rm = TRUE)
-#   ) %>%
-#   ungroup() %>% 
-#     select(fies_rawscore_wmean,# p_mod_wmean, 
-#          fcs_wmean, rcsi_score_wmean, hdds_score_wmean,hhs_3plusPercentage, area_p3plus_percentage, calGap_FGT_lower, calGap_FGT_upper) %>%  
-#   rename(
-#        "FIES raw score" = fies_rawscore_wmean,
-#        "Food consumption score" = fcs_wmean,
-#        "RCSI score" = rcsi_score_wmean,
-#         "HDDS score" = hdds_score_wmean,
-#        "HHS 3+ Population Share" = hhs_3plusPercentage,
-#        "Population share in phase 3 +" = area_p3plus_percentage,
-#        "kcal gap index - lower bound" = calGap_FGT_lower, 
-#        "kcal gap index - upper bound"  = calGap_FGT_upper
-#        )
-# variablesForCorrelation <- na.omit(variablesForCorrelation)
-# # Calculate Spearman correlation matrix
-# cor_spearman <- cor(variablesForCorrelation, method = "spearman")
-# print(cor_spearman)
-# 
-# #save to excel ..................
-# # Convert matrix to data frame for Excel output
-# cor_df <- as.data.frame(cor_spearman)
-# cor_df <- cbind(Variable = rownames(cor_df), cor_df) # add variable names as a column
-# excel_file <- file.path(outputVizInOutputFolder, "Table_correlationsIndicatorsandPhase3prev.xlsx")
-# write.xlsx(cor_df, file = excel_file, rowNames = FALSE)
+# District-level Spearman correlations including IPC 3+% and kcal gap index (single midpoint)
+variablesForCorrelation <- IPC_DIEM %>%
+    select(fies_rawscore_wmean, fcs_wmean, rcsi_score_wmean, hdds_score_wmean,
+           hhs_3:hhs_6, area_p3plus_percentage, calGap_FGT) %>%
+   rowwise() %>%
+  mutate(
+    hhs_3plusPercentage = sum(c_across(hhs_3:hhs_6), na.rm = TRUE)
+  ) %>%
+  ungroup() %>%
+  select(fies_rawscore_wmean, fcs_wmean, rcsi_score_wmean, hdds_score_wmean,
+         hhs_3plusPercentage, area_p3plus_percentage, calGap_FGT) %>%
+  rename(
+       "FIES raw score" = fies_rawscore_wmean,
+       "Food consumption score" = fcs_wmean,
+       "RCSI score" = rcsi_score_wmean,
+       "HDDS score" = hdds_score_wmean,
+       "HHS 3+ Population Share" = hhs_3plusPercentage,
+       "Population share in phase 3+" = area_p3plus_percentage,
+       "Kcal gap index" = calGap_FGT
+       )
+variablesForCorrelation <- na.omit(variablesForCorrelation)
+# Calculate Spearman correlation matrix
+cor_spearman <- cor(variablesForCorrelation, method = "spearman")
+print(cor_spearman)
+
+tableForPaper <- cor_spearman %>% as.data.frame() %>%
+    rownames_to_column(var = "variable")
+write_correlation_table(tableForPaper, file.path(finalTablesFolder, "Table_correlations_district_IPC3plus_kcalgap.xlsx"))
 
 
 
@@ -3517,13 +3545,7 @@ write_paper_table(indicatorGapsByPhase_fcs, file.path(finalTablesFolder, "Table1
 
 # ## setting the per phase gaps
 # ---- perPhaseGaps ----
-
-
-IPC1_calDef <- 0
-IPC2_calDef <- 0
-IPC3_calDef <- 0.105   # midpoint of 1%-20%
-IPC4_calDef <- 0.355   # midpoint of 21%-50%
-IPC5_calDef <- 0.5     # user-specified
+# IPC1_calDef through IPC5_calDef defined earlier in script (before dataMaching section)
 
 fullAmt <- 2100
 
