@@ -1771,13 +1771,20 @@ DIEM_FoodSecurity_HHPost2022 %>%
   arrange(adm0_name) %>% pull(adm0_name) %>% paste(collapse = ", ") %>% cat("\n")
 
 variablesForCorrelation <- DIEM_FoodSecurity_HHPost2022 %>%
-  select(fcs:rcsi_score, fies_rawscore)   %>% select(-lcsi)
-  
+  select(fies_rawscore, fcs, rcsi_score, hdds_score, hhs) %>%
+  rename(
+    "FIES raw score"         = fies_rawscore,
+    "Food consumption score" = fcs,
+    "rCSI score"             = rcsi_score,
+    "HDDS score"             = hdds_score,
+    "HHS score"              = hhs
+  )
+
 variablesForCorrelation <- na.omit(variablesForCorrelation)
 # Calculate Spearman correlation matrix
 cor_spearman <- cor(variablesForCorrelation, method = "spearman") %>%
    as.data.frame() %>%
-  rownames_to_column("Variable") 
+  rownames_to_column("Variable")
 
 cor_spearman%>%
   gt() %>%
