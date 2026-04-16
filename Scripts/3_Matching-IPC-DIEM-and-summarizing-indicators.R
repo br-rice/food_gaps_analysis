@@ -30,6 +30,8 @@ outputFolder <- "C:/Users/BRICE/IFPRI Dropbox/Brendan Rice/DIEM_IPC_analysis/Out
 outputVizInOutputFolder <- "C:/Users/BRICE/IFPRI Dropbox/Brendan Rice/DIEM_IPC_analysis/Output/PlotsTablesForPaper"
 finalTablesFolder <- "C:/Users/BRICE/IFPRI Dropbox/Brendan Rice/DIEM_IPC_analysis/Output/PlotsTablesForPaper_final"
 if (!dir.exists(finalTablesFolder)) dir.create(finalTablesFolder, recursive = TRUE)
+finalFiguresFolder <- "C:/Users/BRICE/IFPRI Dropbox/Brendan Rice/DIEM_IPC_analysis/Output/FiguresForPaper_final"
+if (!dir.exists(finalFiguresFolder)) dir.create(finalFiguresFolder, recursive = TRUE)
 
 # Helper: export a data frame to Excel matching the paper's table style
 # Style: 11pt throughout; headers bold + centered; body first col left-aligned,
@@ -2735,7 +2737,7 @@ combined_plot <- p1 / p2 +
 combined_plot
 
 ggsave(
-  filename = file.path(outputVizInOutputFolder, "gapbyIPCphase_combined_plot_FCS.png"),
+  filename = file.path(finalFiguresFolder, "gapbyIPCphase_combined_plot_FCS.png"),
   plot = combined_plot,
   width = 3,
   height = 5,
@@ -2868,7 +2870,7 @@ combined_plot <- p1 / p2 +
 combined_plot
 
 ggsave(
-  filename = file.path(outputVizInOutputFolder, "gapbyIPCphase_combined_plot_RCSI.png"),
+  filename = file.path(finalFiguresFolder, "gapbyIPCphase_combined_plot_RCSI.png"),
   plot = combined_plot,
   width = 3,
   height = 5,
@@ -3047,7 +3049,7 @@ combined_plot <- p1 / p2 +
 combined_plot
 
 ggsave(
-  filename = file.path(outputVizInOutputFolder, "gapbyIPCphase_combined_plot_hdds.png"),
+  filename = file.path(finalFiguresFolder, "gapbyIPCphase_combined_plot_hdds.png"),
   plot = combined_plot,
   width = 3,
   height = 5,
@@ -3223,7 +3225,7 @@ combined_plot <- p1 / p2 +
 combined_plot
 
 ggsave(
-  filename = file.path(outputVizInOutputFolder, "gapbyIPCphase_combined_plot_hhs.png"),
+  filename = file.path(finalFiguresFolder, "gapbyIPCphase_combined_plot_hhs.png"),
   plot = combined_plot,
   width = 3,
   height = 5,
