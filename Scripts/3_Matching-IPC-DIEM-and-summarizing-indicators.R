@@ -74,6 +74,8 @@ write_paper_table <- function(df, filepath, sheet = "Sheet1") {
 # |r| > 0.6  → green;  0.4 ≤ |r| ≤ 0.6 → yellow;  |r| < 0.4 → light red.
 # Diagonal cells (value == 1) are left unshaded.
 write_correlation_table <- function(df, filepath, sheet = "Sheet1") {
+  # Round numeric columns to 3 decimal places; diagonal (== 1) stays as 1
+  df <- df %>% mutate(across(where(is.numeric), ~round(., 3)))
   wb <- createWorkbook()
   addWorksheet(wb, sheet)
   writeData(wb, sheet = sheet, x = df, startCol = 1, startRow = 1,
@@ -1882,7 +1884,8 @@ for (adm in admin_list) {
   # Compute correlation
   cor_df <- cor(data_sub, method = "spearman") %>%
     as.data.frame() %>%
-    rownames_to_column("Variable")
+    rownames_to_column("Variable") %>%
+    mutate(across(where(is.numeric), ~round(., 3)))
 
   # Print gt table
   cor_df %>%
