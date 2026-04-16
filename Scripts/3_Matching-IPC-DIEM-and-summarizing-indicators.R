@@ -1757,9 +1757,8 @@ write_paper_table(cor_spearman, file.path(outputVizInOutputFolder, "correlations
 # Countries included in household-level correlation (Table7)
 cat("Countries in household-level correlation (Table7):\n")
 DIEM_FoodSecurity_HHPost2022 %>%
-  select(iso3) %>% distinct() %>%
-  mutate(country = countrycode(iso3, origin = "iso3c", destination = "country.name")) %>%
-  arrange(country) %>% pull(country) %>% paste(collapse = ", ") %>% cat("\n")
+  select(adm0_name) %>% distinct() %>%
+  arrange(adm0_name) %>% pull(adm0_name) %>% paste(collapse = ", ") %>% cat("\n")
 
 variablesForCorrelation <- DIEM_FoodSecurity_HHPost2022 %>%
   select(fcs:rcsi_score, fies_rawscore)   %>% select(-lcsi)
