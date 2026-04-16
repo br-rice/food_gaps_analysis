@@ -30,6 +30,8 @@ outputFolder <- "C:/Users/BRICE/IFPRI Dropbox/Brendan Rice/DIEM_IPC_analysis/Out
 outputVizInOutputFolder <- "C:/Users/BRICE/IFPRI Dropbox/Brendan Rice/DIEM_IPC_analysis/Output/PlotsTablesForPaper"
 finalTablesFolder <- "C:/Users/BRICE/IFPRI Dropbox/Brendan Rice/DIEM_IPC_analysis/Output/PlotsTablesForPaper_final"
 if (!dir.exists(finalTablesFolder)) dir.create(finalTablesFolder, recursive = TRUE)
+finalFiguresFolder <- "C:/Users/BRICE/IFPRI Dropbox/Brendan Rice/DIEM_IPC_analysis/Output/FiguresForPaper_final"
+if (!dir.exists(finalFiguresFolder)) dir.create(finalFiguresFolder, recursive = TRUE)
 
 # Helper: export a data frame to Excel matching the paper's table style
 # Style: 11pt throughout; headers bold + centered; body first col left-aligned,
@@ -246,6 +248,53 @@ del <- describingIPC_DIEM %>%
   )
 
 write_paper_table(del, file.path(finalTablesFolder, "Table5_matched_areas_by_country.xlsx"))
+
+# ---- matchedHHcountByCountry ----
+# Count of matched households by country and IPC phase
+del_hh <- IPCDIEM_hh %>%
+  group_by(adm0_name) %>%
+  count(area_overall_phase, name = "n_households") %>%
+  ungroup() %>%
+  pivot_wider(names_from = area_overall_phase, values_from = n_households,
+              names_prefix = "IPC") %>%
+  select(adm0_name, any_of(c("IPC1", "IPC2", "IPC3", "IPC4"))) %>%
+  arrange(adm0_name) %>%
+  mutate(across(where(is.numeric), ~replace_na(., 0L))) %>%
+  bind_rows(
+    summarise(., adm0_name = "Total", across(where(is.numeric), sum))
+  ) %>%
+  rename(Country = adm0_name)
+
+write_paper_table(del_hh, file.path(finalTablesFolder, "Table1b_matched_households_by_country_and_phase.xlsx"))
+
+# ---- hhDataCompleteness ----
+# Share of matched households with no missing in ANY of FCS, HDDS, HHS, RCSI
+completeness_by_country <- IPCDIEM_hh %>%
+  mutate(all_complete = !is.na(fcs) & !is.na(hdds_score) & !is.na(hhs) & !is.na(rcsi_score)) %>%
+  group_by(adm0_name) %>%
+  summarise(
+    N_households = n(),
+    pct_complete = round(100 * mean(all_complete), 1),
+    .groups = "drop"
+  ) %>%
+  arrange(adm0_name)
+
+completeness_overall <- IPCDIEM_hh %>%
+  mutate(all_complete = !is.na(fcs) & !is.na(hdds_score) & !is.na(hhs) & !is.na(rcsi_score)) %>%
+  summarise(
+    adm0_name    = "Overall",
+    N_households = n(),
+    pct_complete = round(100 * mean(all_complete), 1)
+  )
+
+completeness_tbl <- bind_rows(completeness_by_country, completeness_overall) %>%
+  rename(
+    Country                             = adm0_name,
+    "N matched HH"                      = N_households,
+    "HH with complete data, all 4 indicators (%)" = pct_complete
+  )
+
+write_paper_table(completeness_tbl, file.path(finalTablesFolder, "Table_HH_data_completeness.xlsx"))
 
 # by time (appendix)
 del <- describingIPC_DIEM %>%
@@ -480,6 +529,13 @@ write_paper_table(del, file.path(finalTablesFolder, "AppendixA1_time_coverage.xl
 # <hr>
 
 
+# Caloric deficit midpoints by IPC phase (midpoints used throughout script for calGap_FGT and IPCthresholds)
+IPC1_calDef <- 0
+IPC2_calDef <- 0
+IPC3_calDef <- 0.105   # midpoint of 1%-20%
+IPC4_calDef <- 0.355   # midpoint of 21%-50%
+IPC5_calDef <- 0.5     # user-specified
+
 # ---- dataMaching ----
 DIEM_FoodSecurity <- DIEM_FoodSecurityImported %>%
   mutate(start_dateForMatching_DIEM = coll_start_date %m-% months(5),
@@ -548,7 +604,15 @@ IPC_DIEM <- DIEM_FoodSecurity %>%
   rename(DIEM_startDate=coll_start_date,
          IPC_country_title = country_title,
          IPC_analysis_date = country_analysis_date,
-         IPC_current_period_dates = country_current_period_dates)
+         IPC_current_period_dates = country_current_period_dates) %>%
+  mutate(
+    # FGT1 kcal gap index: population-weighted avg caloric deficit across IPC phases
+    calGap_FGT = IPC1_calDef * area_phase1_percentage +
+                 IPC2_calDef * area_phase2_percentage +
+                 IPC3_calDef * area_phase3_percentage +
+                 IPC4_calDef * area_phase4_percentage +
+                 IPC5_calDef * area_phase5_percentage
+  )
 
 
 # id matched countries and rounds
@@ -1689,7 +1753,15 @@ write_paper_table(cor_spearman, file.path(outputVizInOutputFolder, "correlations
 # ###All observations (2023+ data)
 # This is so that we can include FIES in the correlation matrix
 # ---- cor_entirehhdata_2023+ ----
-variablesForCorrelation <- DIEM_FoodSecurity_HHPost2022 %>% 
+
+# Countries included in household-level correlation (Table7)
+cat("Countries in household-level correlation (Table7):\n")
+DIEM_FoodSecurity_HHPost2022 %>%
+  select(iso3) %>% distinct() %>%
+  mutate(country = countrycode(iso3, origin = "iso3c", destination = "country.name")) %>%
+  arrange(country) %>% pull(country) %>% paste(collapse = ", ") %>% cat("\n")
+
+variablesForCorrelation <- DIEM_FoodSecurity_HHPost2022 %>%
   select(fcs:rcsi_score, fies_rawscore)   %>% select(-lcsi)
   
 variablesForCorrelation <- na.omit(variablesForCorrelation)
@@ -1769,30 +1841,70 @@ cor_spearman <- cor(variablesForCorrelation, method = "spearman") %>%
 # Assuming your main data has `admin0` and the food security vars
 admin_list <- unique(DIEM_FoodSecurity_HH$adm0_name)
 
+# Build multi-sheet workbook for per-country correlations
+wb_country_corr <- createWorkbook()
+
+# Styles for conditional shading (matching write_correlation_table)
+cc_header  <- createStyle(textDecoration = "bold", halign = "center", valign = "center",
+                          wrapText = TRUE, fontSize = 11,
+                          border = "TopBottomLeftRight", borderStyle = "thin")
+cc_first   <- createStyle(halign = "left", valign = "center", fontSize = 11,
+                          border = "TopBottomLeftRight", borderStyle = "thin")
+cc_green   <- createStyle(halign = "center", valign = "center", fontSize = 11,
+                          border = "TopBottomLeftRight", borderStyle = "thin", fgFill = "#CCFFCC")
+cc_yellow  <- createStyle(halign = "center", valign = "center", fontSize = 11,
+                          border = "TopBottomLeftRight", borderStyle = "thin", fgFill = "#FFFF99")
+cc_red     <- createStyle(halign = "center", valign = "center", fontSize = 11,
+                          border = "TopBottomLeftRight", borderStyle = "thin", fgFill = "#FFCCCC")
+cc_plain   <- createStyle(halign = "center", valign = "center", fontSize = 11,
+                          border = "TopBottomLeftRight", borderStyle = "thin")
+
 for (adm in admin_list) {
   message("Processing: ", adm)
-  
+
   # Filter for this admin0
   data_sub <- DIEM_FoodSecurity_HH %>%
     filter(adm0_name == adm) %>%
     select(fcs:rcsi_score) %>%
+    select(-lcsi) %>%
     na.omit()
-  
+
   # Skip empty subsets
   if (nrow(data_sub) == 0) next
-  
-  # Compute correlation and make gt table
-  cor_table <- cor(data_sub, method = "spearman") %>%
+
+  # Compute correlation
+  cor_df <- cor(data_sub, method = "spearman") %>%
     as.data.frame() %>%
-    rownames_to_column("Variable") %>%
+    rownames_to_column("Variable")
+
+  # Print gt table
+  cor_df %>%
     gt() %>%
     fmt_number(columns = where(is.numeric), decimals = 2) %>%
-    tab_header(
-      title = md(paste0("**Spearman Correlation Matrix – ", adm, "**"))
-    )
-  
-  print(cor_table)
+    tab_header(title = md(paste0("**Spearman Correlation Matrix – ", adm, "**"))) %>%
+    print()
+
+  # Add sheet (Excel sheet names max 31 chars)
+  sheet_name <- substr(adm, 1, 31)
+  addWorksheet(wb_country_corr, sheet_name)
+  writeData(wb_country_corr, sheet = sheet_name, x = cor_df, startRow = 1, colNames = TRUE)
+  addStyle(wb_country_corr, sheet = sheet_name, style = cc_header,
+           rows = 1, cols = 1:ncol(cor_df), gridExpand = TRUE)
+  addStyle(wb_country_corr, sheet = sheet_name, style = cc_first,
+           rows = 2:(nrow(cor_df) + 1), cols = 1)
+  for (col_idx in 2:ncol(cor_df)) {
+    for (row_idx in seq_len(nrow(cor_df))) {
+      val <- cor_df[[col_idx]][row_idx]
+      sty <- if (is.na(val) || val == 1) cc_plain else if (abs(val) > 0.6) cc_green else if (abs(val) >= 0.4) cc_yellow else cc_red
+      addStyle(wb_country_corr, sheet = sheet_name, style = sty, rows = row_idx + 1, cols = col_idx)
+    }
+  }
+  setColWidths(wb_country_corr, sheet = sheet_name, cols = 1:ncol(cor_df), widths = 15)
 }
+
+saveWorkbook(wb_country_corr,
+             file.path(finalTablesFolder, "AppendixA_correlations_by_country.xlsx"),
+             overwrite = TRUE)
 
 
 
@@ -1980,9 +2092,17 @@ cor_spearman <- cor(variablesForCorrelation, method = "pearson") %>%
 
 # ## Correlations (DIEM district-level means) 
 
-# This includes the entire DIAM dataset - so these are all district level values, not just those that are matched to IPC phase. This is the Sprearman rank correlation. 
+# This includes the entire DIAM dataset - so these are all district level values, not just those that are matched to IPC phase. This is the Sprearman rank correlation.
 # ---- correlation2 ----
-variablesForCorrelation <- DIEM_FoodSecurityImported %>% 
+
+# Countries included in district-level correlation (Table6)
+cat("Countries in district-level correlation (Table6):\n")
+DIEM_FoodSecurityImported %>%
+  select(iso3) %>% distinct() %>%
+  mutate(country = countrycode(iso3, origin = "iso3c", destination = "country.name")) %>%
+  arrange(country) %>% pull(country) %>% paste(collapse = ", ") %>% cat("\n")
+
+variablesForCorrelation <- DIEM_FoodSecurityImported %>%
   select(fies_rawscore_wmean, #p_mod_wmean, 
          fcs_wmean, rcsi_score_wmean, hdds_score_wmean,hhs_3: hhs_6)  %>%
    rowwise() %>%
@@ -2110,37 +2230,34 @@ print(cor_spearman)
 # Then the share of population by phase is multiplied by these assumed avg deficits and summed across phases to get the one value. 
 
 # ---- correlation5 ----
-# variablesForCorrelation <- IPC_DIEM %>%
-#     select(fies_rawscore_wmean,# p_mod_wmean, 
-#          fcs_wmean, rcsi_score_wmean, hdds_score_wmean,hhs_3: hhs_6, area_p3plus_percentage, calGap_FGT_lower, calGap_FGT_upper) %>%
-#    rowwise() %>%
-#   mutate(
-#     hhs_3plusPercentage = sum(c_across(hhs_3:hhs_6), na.rm = TRUE)
-#   ) %>%
-#   ungroup() %>% 
-#     select(fies_rawscore_wmean,# p_mod_wmean, 
-#          fcs_wmean, rcsi_score_wmean, hdds_score_wmean,hhs_3plusPercentage, area_p3plus_percentage, calGap_FGT_lower, calGap_FGT_upper) %>%  
-#   rename(
-#        "FIES raw score" = fies_rawscore_wmean,
-#        "Food consumption score" = fcs_wmean,
-#        "RCSI score" = rcsi_score_wmean,
-#         "HDDS score" = hdds_score_wmean,
-#        "HHS 3+ Population Share" = hhs_3plusPercentage,
-#        "Population share in phase 3 +" = area_p3plus_percentage,
-#        "kcal gap index - lower bound" = calGap_FGT_lower, 
-#        "kcal gap index - upper bound"  = calGap_FGT_upper
-#        )
-# variablesForCorrelation <- na.omit(variablesForCorrelation)
-# # Calculate Spearman correlation matrix
-# cor_spearman <- cor(variablesForCorrelation, method = "spearman")
-# print(cor_spearman)
-# 
-# #save to excel ..................
-# # Convert matrix to data frame for Excel output
-# cor_df <- as.data.frame(cor_spearman)
-# cor_df <- cbind(Variable = rownames(cor_df), cor_df) # add variable names as a column
-# excel_file <- file.path(outputVizInOutputFolder, "Table_correlationsIndicatorsandPhase3prev.xlsx")
-# write.xlsx(cor_df, file = excel_file, rowNames = FALSE)
+# District-level Spearman correlations including IPC 3+% and kcal gap index (single midpoint)
+variablesForCorrelation <- IPC_DIEM %>%
+    select(fies_rawscore_wmean, fcs_wmean, rcsi_score_wmean, hdds_score_wmean,
+           hhs_3:hhs_6, area_p3plus_percentage, calGap_FGT) %>%
+   rowwise() %>%
+  mutate(
+    hhs_3plusPercentage = sum(c_across(hhs_3:hhs_6), na.rm = TRUE)
+  ) %>%
+  ungroup() %>%
+  select(fies_rawscore_wmean, fcs_wmean, rcsi_score_wmean, hdds_score_wmean,
+         hhs_3plusPercentage, area_p3plus_percentage, calGap_FGT) %>%
+  rename(
+       "FIES raw score" = fies_rawscore_wmean,
+       "Food consumption score" = fcs_wmean,
+       "RCSI score" = rcsi_score_wmean,
+       "HDDS score" = hdds_score_wmean,
+       "HHS 3+ Population Share" = hhs_3plusPercentage,
+       "Population share in phase 3+" = area_p3plus_percentage,
+       "Kcal gap index" = calGap_FGT
+       )
+variablesForCorrelation <- na.omit(variablesForCorrelation)
+# Calculate Spearman correlation matrix
+cor_spearman <- cor(variablesForCorrelation, method = "spearman")
+print(cor_spearman)
+
+tableForPaper <- cor_spearman %>% as.data.frame() %>%
+    rownames_to_column(var = "variable")
+write_correlation_table(tableForPaper, file.path(finalTablesFolder, "Table_correlations_district_IPC3plus_kcalgap.xlsx"))
 
 
 
@@ -2620,7 +2737,7 @@ combined_plot <- p1 / p2 +
 combined_plot
 
 ggsave(
-  filename = file.path(outputVizInOutputFolder, "gapbyIPCphase_combined_plot_FCS.png"),
+  filename = file.path(finalFiguresFolder, "gapbyIPCphase_combined_plot_FCS.png"),
   plot = combined_plot,
   width = 3,
   height = 5,
@@ -2753,7 +2870,7 @@ combined_plot <- p1 / p2 +
 combined_plot
 
 ggsave(
-  filename = file.path(outputVizInOutputFolder, "gapbyIPCphase_combined_plot_RCSI.png"),
+  filename = file.path(finalFiguresFolder, "gapbyIPCphase_combined_plot_RCSI.png"),
   plot = combined_plot,
   width = 3,
   height = 5,
@@ -2932,7 +3049,7 @@ combined_plot <- p1 / p2 +
 combined_plot
 
 ggsave(
-  filename = file.path(outputVizInOutputFolder, "gapbyIPCphase_combined_plot_hdds.png"),
+  filename = file.path(finalFiguresFolder, "gapbyIPCphase_combined_plot_hdds.png"),
   plot = combined_plot,
   width = 3,
   height = 5,
@@ -3108,7 +3225,7 @@ combined_plot <- p1 / p2 +
 combined_plot
 
 ggsave(
-  filename = file.path(outputVizInOutputFolder, "gapbyIPCphase_combined_plot_hhs.png"),
+  filename = file.path(finalFiguresFolder, "gapbyIPCphase_combined_plot_hhs.png"),
   plot = combined_plot,
   width = 3,
   height = 5,
@@ -3260,18 +3377,14 @@ gaps_Table_1 <- IPCdata_forIndicatorGaps %>%
 
 # now on to the FCS table------------------------------------------------------------------
 gaps_Table_fcs <- gaps_Table_1 %>%
-  mutate(
-    byPhaseValue = paste0("Pop: ", population, " | FCS gap: ", fgt1_FCS, " | Cost annual mill USD: ", round(cost_annual_millionsUSD_usingFCSgaps, 1))
-  ) %>%
-  
-  select(country_name, year, ipcphase, byPhaseValue, total_cost_annual_millionsUSD_usingFCSgaps) %>%
-  
-   pivot_wider(
-    id_cols = c(country_name, year, total_cost_annual_millionsUSD_usingFCSgaps),       
-    names_from = ipcphase,            
-    values_from = byPhaseValue,
-    names_prefix = "IPC phase "
-    ) 
+  select(country_name, year, ipcphase, population, fgt1_FCS,
+         cost_annual_millionsUSD_usingFCSgaps, total_cost_annual_millionsUSD_usingFCSgaps) %>%
+  pivot_wider(
+    id_cols = c(country_name, year, total_cost_annual_millionsUSD_usingFCSgaps),
+    names_from = ipcphase,
+    values_from = c(population, fgt1_FCS, cost_annual_millionsUSD_usingFCSgaps),
+    names_glue = "{.value}_phase{ipcphase}"
+  )
 
 write_paper_table(gaps_Table_fcs, file.path(finalTablesFolder, "Table11_FCS_cost_by_country.xlsx"))
 
@@ -3349,6 +3462,10 @@ countries_fgtgaps <- IPCDIEM_hh %>%
 write_paper_table(countries_fgtgaps,
            file.path(outputVizInOutputFolder, "table_fgtIndicatorGaps_by country.xlsx"))
 
+# AppendixA3.1: all-indicator FGT by country (collapsed across phases)
+write_paper_table(countries_fgtgaps,
+           file.path(finalTablesFolder, "AppendixA3_1_FGT_by_country.xlsx"))
+
 
 
 
@@ -3380,76 +3497,40 @@ indicatorGapsByPhase <- bind_rows(gap_FCS_byPhase, gap_RCSI_byPhase,gap_hdds_byP
 
 # now for fcs
 indicatorGapsByPhase_fcs <- indicatorGapsByPhase %>%
-  select(adm0_name, starts_with("FCS_")) %>%
-    select(
-    adm0_name,
+  select(adm0_name,
     FCS_FGT0_phase1, FCS_FGT1_phase1,
     FCS_FGT0_phase2, FCS_FGT1_phase2,
     FCS_FGT0_phase3, FCS_FGT1_phase3,
     FCS_FGT0_phase4, FCS_FGT1_phase4
-  ) %>%
-  mutate(
-    Phase_1_fcs = paste0("FGT0: ", FCS_FGT0_phase1, "  |  FCT1: ", FCS_FGT1_phase1),
-    Phase_2_fcs = paste0("FGT0: ", FCS_FGT0_phase2, "  |  FCT1: ", FCS_FGT1_phase2),
-    Phase_3_fcs = paste0("FGT0: ", FCS_FGT0_phase3, "  |  FCT1: ", FCS_FGT1_phase3),
-    Phase_4_fcs = paste0("FGT0: ", FCS_FGT0_phase4, "  |  FCT1: ", FCS_FGT1_phase4)
-  ) %>%
-  select(adm0_name,Phase_1_fcs, Phase_2_fcs, Phase_3_fcs, Phase_4_fcs )
+  )
 
 # now for rcsi
 indicatorGapsByPhase_rcsi <- indicatorGapsByPhase %>%
-  select(adm0_name, starts_with("rcsi_")) %>%
-    select(
-    adm0_name,
+  select(adm0_name,
     rcsi_FGT0_phase1, rcsi_FGT1_phase1,
     rcsi_FGT0_phase2, rcsi_FGT1_phase2,
     rcsi_FGT0_phase3, rcsi_FGT1_phase3,
     rcsi_FGT0_phase4, rcsi_FGT1_phase4
-  ) %>%
-  mutate(
-    Phase_1_rcsi = paste0("FGT0: ", rcsi_FGT0_phase1, "  |  FCT1: ", rcsi_FGT1_phase1),
-    Phase_2_rcsi = paste0("FGT0: ", rcsi_FGT0_phase2, "  |  FCT1: ", rcsi_FGT1_phase2),
-    Phase_3_rcsi = paste0("FGT0: ", rcsi_FGT0_phase3, "  |  FCT1: ", rcsi_FGT1_phase3),
-    Phase_4_rcsi = paste0("FGT0: ", rcsi_FGT0_phase4, "  |  FCT1: ", rcsi_FGT1_phase4)
-  ) %>%
-  select(adm0_name,Phase_1_rcsi, Phase_2_rcsi, Phase_3_rcsi, Phase_4_rcsi )
+  )
 
 
 # now for hdds
 indicatorGapsByPhase_hdds <- indicatorGapsByPhase %>%
-  select(adm0_name, starts_with("hdds_")) %>%
-    select(
-    adm0_name,
+  select(adm0_name,
     hdds_FGT0_phase1, hdds_FGT1_phase1,
     hdds_FGT0_phase2, hdds_FGT1_phase2,
     hdds_FGT0_phase3, hdds_FGT1_phase3,
     hdds_FGT0_phase4, hdds_FGT1_phase4
-  ) %>%
-  mutate(
-    Phase_1_hdds = paste0("FGT0: ", hdds_FGT0_phase1, "  |  FCT1: ", hdds_FGT1_phase1),
-    Phase_2_hdds = paste0("FGT0: ", hdds_FGT0_phase2, "  |  FCT1: ", hdds_FGT1_phase2),
-    Phase_3_hdds = paste0("FGT0: ", hdds_FGT0_phase3, "  |  FCT1: ", hdds_FGT1_phase3),
-    Phase_4_hdds = paste0("FGT0: ", hdds_FGT0_phase4, "  |  FCT1: ", hdds_FGT1_phase4)
-  ) %>%
-  select(adm0_name,Phase_1_hdds, Phase_2_hdds, Phase_3_hdds, Phase_4_hdds )
+  )
 
 # now for hhs
 indicatorGapsByPhase_hhs <- indicatorGapsByPhase %>%
-  select(adm0_name, starts_with("hhs_")) %>%
-    select(
-    adm0_name,
+  select(adm0_name,
     hhs_FGT0_phase1, hhs_FGT1_phase1,
     hhs_FGT0_phase2, hhs_FGT1_phase2,
     hhs_FGT0_phase3, hhs_FGT1_phase3,
     hhs_FGT0_phase4, hhs_FGT1_phase4
-  ) %>%
-  mutate(
-    Phase_1_hhs = paste0("FGT0: ", hhs_FGT0_phase1, "  |  FCT1: ", hhs_FGT1_phase1),
-    Phase_2_hhs = paste0("FGT0: ", hhs_FGT0_phase2, "  |  FCT1: ", hhs_FGT1_phase2),
-    Phase_3_hhs = paste0("FGT0: ", hhs_FGT0_phase3, "  |  FCT1: ", hhs_FGT1_phase3),
-    Phase_4_hhs = paste0("FGT0: ", hhs_FGT0_phase4, "  |  FCT1: ", hhs_FGT1_phase4)
-  ) %>%
-  select(adm0_name,Phase_1_hhs, Phase_2_hhs, Phase_3_hhs, Phase_4_hhs )
+  )
 
 
 
@@ -3458,6 +3539,18 @@ indicatorGapsByPhase_hhs <- indicatorGapsByPhase %>%
 
 
 write_paper_table(indicatorGapsByPhase_fcs, file.path(finalTablesFolder, "Table10_FCS_FGT_by_country_phase.xlsx"))
+
+
+# AppendixA3.2: All-indicator FGT by country × phase (phases 3 and 4), separate columns
+AppendixA3_2 <- indicatorGapsByPhase %>%
+  select(adm0_name,
+    FCS_FGT0_phase3, FCS_FGT1_phase3, FCS_FGT0_phase4, FCS_FGT1_phase4,
+    rcsi_FGT0_phase3, rcsi_FGT1_phase3, rcsi_FGT0_phase4, rcsi_FGT1_phase4,
+    hdds_FGT0_phase3, hdds_FGT1_phase3, hdds_FGT0_phase4, hdds_FGT1_phase4,
+    hhs_FGT0_phase3, hhs_FGT1_phase3, hhs_FGT0_phase4, hhs_FGT1_phase4
+  )
+
+write_paper_table(AppendixA3_2, file.path(finalTablesFolder, "AppendixA3_2_FGT_by_country_phase.xlsx"))
 
 
 
@@ -3470,13 +3563,7 @@ write_paper_table(indicatorGapsByPhase_fcs, file.path(finalTablesFolder, "Table1
 
 # ## setting the per phase gaps
 # ---- perPhaseGaps ----
-
-
-IPC1_calDef <- 0
-IPC2_calDef <- 0
-IPC3_calDef <- 0.105   # midpoint of 1%-20%
-IPC4_calDef <- 0.355   # midpoint of 21%-50%
-IPC5_calDef <- 0.5     # user-specified
+# IPC1_calDef through IPC5_calDef defined earlier in script (before dataMaching section)
 
 fullAmt <- 2100
 
@@ -3531,7 +3618,7 @@ IPCcalculations <- IPCdataImported %>%
   filter(country_name != "Lebanon") %>%
   select(-iso3) %>%
   mutate(country_title = paste(country_name, " - ", country_title)) %>%
-  select(-country_name) %>%
+  # keep country_name until after peak-analysis selection below
   # for the merging
   rename(IPC_phase = area_overall_phase) %>%
   mutate(IPC_phase = case_when(
@@ -3544,6 +3631,13 @@ IPCcalculations <- IPCdataImported %>%
   #making it longer
   select(-c(country_current_period_dates, IPC_phase,area_p3plus_percentage, adm_name: last_col())) %>%
   group_by(country_title) %>% slice(1) %>% ungroup() %>%
+  # select the analysis with the highest total population coverage per country
+  mutate(totalPopulationCovered = country_phase1_population + country_phase2_population +
+           country_phase3_population + country_phase4_population + country_phase5_population) %>%
+  group_by(country_name) %>%
+  slice_max(totalPopulationCovered, n = 1, with_ties = FALSE) %>%
+  ungroup() %>%
+  select(-country_name, -totalPopulationCovered) %>%
 
 #IPCcalculations %>% group_by(id) %>% count() %>% filter(n>1)
   pivot_longer(
@@ -3632,13 +3726,8 @@ tableWithRanges <- tablePrep %>%
   mutate(country_title = str_remove(country_title, "Cadre Harmonisé")) %>%
   mutate(country_title = str_remove(country_title, "CH Analysis")) %>%
   filter(!str_detect(country_title, "displaced")) %>%
-  filter(year(country_analysis_date) >= 2023) %>%
-  # keep only the single most recent analysis per country (by exact date)
-  mutate(country_name_clean = str_extract(country_title, "^[^-]+") %>% str_trim()) %>%
-  group_by(country_name_clean) %>%
-  filter(country_analysis_date == max(country_analysis_date)) %>%
-  ungroup() %>%
-  select(-country_name_clean, -country_analysis_date) %>%
+  # peak-analysis selection is now done in IPCcalculations; just drop the date column
+  select(-country_analysis_date) %>%
   rename(
     "Gap mill. kcal"                  = MillKcalNeeds_byPhase,
     "Total gap mill. kcal"            = totalGap_inmillKCal,
@@ -3680,12 +3769,20 @@ write_paper_table(dataForExcel, file.path(finalTablesFolder, "AppendixA2_deficit
 
 
 #=====================================================================================================
-#table 2
+#table 2 - food assistance for matched countries only
 
+# iso3 codes of countries in the matched IPC-DIEM dataset
+matched_iso3s <- unique(IPCDIEM_hh$iso3)
 
 dataForExcel <- tableWithRanges %>%
   select(country_title, IPC_phase, population_inPhase,
          `Total gap mill. kcal`, `Calorie gap (FGT index)`, `Total gap MT cereal`) %>%
+  mutate(
+    country_name_clean = str_extract(country_title, "^[^-]+") %>% str_trim(),
+    iso3_temp = countrycode(country_name_clean, origin = "country.name", destination = "iso3c")
+  ) %>%
+  filter(iso3_temp %in% matched_iso3s) %>%
+  select(-country_name_clean, -iso3_temp) %>%
   group_by(country_title) %>% slice(1) %>% ungroup() %>% select(-IPC_phase) %>%
   mutate(population_numeric = parse_number(as.character(population_inPhase))) %>%
   filter(population_numeric > 0) %>%
