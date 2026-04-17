@@ -1710,15 +1710,15 @@ toShow <- toShow_stats %>%
     FCS         = fmt_mean_sd(fcs_mean,  fcs_sd),
     HDDS        = fmt_mean_sd(hdds_mean, hdds_sd),
     rCSI        = fmt_mean_sd(rcsi_mean, rcsi_sd),
-    `FIES (raw score)*` = fmt_mean_sd(fies_mean, fies_sd),
+    `FIES (raw score)` = fmt_mean_sd(fies_mean, fies_sd),
     HHS         = fmt_mean_sd(hhs_mean,  hhs_sd)
   ) %>%
-  select(area_overall_phase, FCS, HDDS, rCSI, `FIES (raw score)*`, HHS) %>%
+  select(area_overall_phase, FCS, HDDS, rCSI, `FIES (raw score)`, HHS) %>%
   bind_rows(
     tibble(
       area_overall_phase = "Threshold",
       FCS  = "35", HDDS = "3", rCSI = "19",
-      `FIES (raw score)*` = "n.a.", HHS = "3"
+      `FIES (raw score)` = "n.a.", HHS = "3"
     )
   ) %>%
   rename("IPC Phase" = area_overall_phase)
@@ -1727,12 +1727,12 @@ toShow %>%
   gt() %>%
   tab_header(title = "Table 6: Indicator means by IPC phase (household level, raw values)") %>%
   tab_options(table.font.size = px(12)) %>%
-  tab_footnote(footnote = "Mean (SD). * FIES available for 2023+ data only.")
+  tab_footnote(footnote = "Mean (SD). FIES available for 2023+ data only.")
 
 write_paper_table(
   toShow,
   file.path(finalTablesFolder, "Table6_indicator_means_by_phase.xlsx"),
-  footnote = "Mean (SD). * FIES available for 2023+ data only."
+  footnote = "Mean (SD). FIES available for 2023+ data only."
 )
 
 
