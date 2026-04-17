@@ -206,7 +206,7 @@ cat("Household-rounds with exactly 1 IPC match:", sum(multi_match$n_ipc_matches 
 # Deduplicate: per (household, survey round) keep closest IPC analysis in time
 IPCDIEM_hh <- IPCDIEM_hh %>%
   group_by(OBJECTID, survey_date) %>%
-  slice_min(abs(as.numeric(survey_date - country_analysis_date)), n = 1, with_ties = FALSE) %>%
+  slice_min(abs(as.numeric(as.Date(survey_date) - as.Date(country_analysis_date))), n = 1, with_ties = FALSE) %>%
   ungroup()
 
 cat("\n=== AFTER deduplication ===\n")
