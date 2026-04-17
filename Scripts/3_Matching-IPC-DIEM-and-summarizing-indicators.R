@@ -3423,7 +3423,64 @@ indicatorGapsByPhaseOnly <- byPhaseGap_FCS %>%
   bind_rows(indicatorGapsByIndicatorOnly)
 
 
-write_paper_table(indicatorGapsByPhaseOnly, file.path(finalTablesFolder, "Table7_FGT_indices_by_phase.xlsx"))
+local({
+  df <- indicatorGapsByPhaseOnly %>%
+    mutate(
+      ipc_phase = case_when(
+        ipc_phase == "overall" ~ "Overall",
+        TRUE ~ paste0("IPC ", ipc_phase)
+      ),
+      across(where(is.numeric), ~ round(.x, 2))
+    ) %>%
+    rename("IPC Phase" = ipc_phase)
+
+  wb <- createWorkbook()
+  sh <- "Sheet1"
+  addWorksheet(wb, sh)
+
+  # Row 1: top-level indicator groups
+  writeData(wb, sh, startRow = 1, startCol = 1, colNames = FALSE, x = data.frame(
+    A = "IPC Phase",
+    B = "FCS",  C = "", D = "",
+    E = "HDDS", F = "", G = "",
+    H = "HHS",  I = "", J = "",
+    K = "rCSI", L = "", M = ""
+  ))
+  mergeCells(wb, sh, rows = 1, cols = 2:4)
+  mergeCells(wb, sh, rows = 1, cols = 5:7)
+  mergeCells(wb, sh, rows = 1, cols = 8:10)
+  mergeCells(wb, sh, rows = 1, cols = 11:13)
+
+  # Row 2: sub-headers
+  writeData(wb, sh, startRow = 2, startCol = 1, colNames = FALSE, x = data.frame(
+    A = "IPC Phase",
+    B = "FGT0", C = "Avg Gap", D = "FGT1",
+    E = "FGT0", F = "Avg Gap", G = "FGT1",
+    H = "FGT0", I = "Avg Gap", J = "FGT1",
+    K = "FGT0", L = "Avg Gap", M = "FGT1"
+  ))
+
+  # Data
+  writeData(wb, sh, x = df, startRow = 3, startCol = 1, colNames = FALSE)
+
+  header_style <- createStyle(textDecoration = "bold", halign = "center", valign = "center",
+                              wrapText = TRUE, fontName = "Times New Roman", fontSize = 9,
+                              border = "TopBottomLeftRight", borderStyle = "thin", fgFill = "#BDD7EE")
+  left_style   <- createStyle(halign = "left",   valign = "center",
+                              fontName = "Times New Roman", fontSize = 9,
+                              border = "TopBottomLeftRight", borderStyle = "thin")
+  body_style   <- createStyle(halign = "center", valign = "center",
+                              fontName = "Times New Roman", fontSize = 9,
+                              border = "TopBottomLeftRight", borderStyle = "thin")
+
+  addStyle(wb, sh, header_style, rows = 1:2,              cols = 1:13, gridExpand = TRUE)
+  addStyle(wb, sh, left_style,   rows = 3:(nrow(df) + 2), cols = 1,    gridExpand = TRUE)
+  addStyle(wb, sh, body_style,   rows = 3:(nrow(df) + 2), cols = 2:13, gridExpand = TRUE)
+
+  setColWidths(wb, sh, cols = 1,     widths = 12)
+  setColWidths(wb, sh, cols = 2:13,  widths = 9)
+  saveWorkbook(wb, file.path(finalTablesFolder, "Table7_FGT_indices_by_phase.xlsx"), overwrite = TRUE)
+})
 
 
 
