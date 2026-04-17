@@ -2515,46 +2515,81 @@ appendix_comparison <- bind_rows(overall_full, overall_matched, full_summary, ma
          hdds_score_mean, hdds_score_sd,
          hhs_mean, hhs_sd,
          rcsi_score_mean, rcsi_score_sd) %>%
+  mutate(
+    fcs_meansd        = fmt_mean_sd(fcs_mean,        fcs_sd),
+    hdds_meansd       = fmt_mean_sd(hdds_score_mean, hdds_score_sd),
+    hhs_meansd        = fmt_mean_sd(hhs_mean,        hhs_sd),
+    rcsi_meansd       = fmt_mean_sd(rcsi_score_mean, rcsi_score_sd)
+  ) %>%
+  select(adm0_name, sample, fcs_meansd, hdds_meansd, hhs_meansd, rcsi_meansd) %>%
   pivot_wider(
     names_from  = sample,
-    values_from = c(fcs_mean, fcs_sd,
-                    hdds_score_mean, hdds_score_sd,
-                    hhs_mean, hhs_sd,
-                    rcsi_score_mean, rcsi_score_sd)
+    values_from = c(fcs_meansd, hdds_meansd, hhs_meansd, rcsi_meansd)
   ) %>%
+  arrange(adm0_name == "Overall", adm0_name) %>%
   select(
     adm0_name,
-    "fcs_mean_Full DIEM",        "fcs_sd_Full DIEM",
-    "fcs_mean_Matched (IPC-DIEM)", "fcs_sd_Matched (IPC-DIEM)",
-    "hdds_score_mean_Full DIEM", "hdds_score_sd_Full DIEM",
-    "hdds_score_mean_Matched (IPC-DIEM)", "hdds_score_sd_Matched (IPC-DIEM)",
-    "hhs_mean_Full DIEM",        "hhs_sd_Full DIEM",
-    "hhs_mean_Matched (IPC-DIEM)", "hhs_sd_Matched (IPC-DIEM)",
-    "rcsi_score_mean_Full DIEM", "rcsi_score_sd_Full DIEM",
-    "rcsi_score_mean_Matched (IPC-DIEM)", "rcsi_score_sd_Matched (IPC-DIEM)"
-  ) %>%
-  rename(
-    Country                  = adm0_name,
-    "FCS mean (full)"        = "fcs_mean_Full DIEM",
-    "FCS SD (full)"          = "fcs_sd_Full DIEM",
-    "FCS mean (matched)"     = "fcs_mean_Matched (IPC-DIEM)",
-    "FCS SD (matched)"       = "fcs_sd_Matched (IPC-DIEM)",
-    "HDDS mean (full)"       = "hdds_score_mean_Full DIEM",
-    "HDDS SD (full)"         = "hdds_score_sd_Full DIEM",
-    "HDDS mean (matched)"    = "hdds_score_mean_Matched (IPC-DIEM)",
-    "HDDS SD (matched)"      = "hdds_score_sd_Matched (IPC-DIEM)",
-    "HHS mean (full)"        = "hhs_mean_Full DIEM",
-    "HHS SD (full)"          = "hhs_sd_Full DIEM",
-    "HHS mean (matched)"     = "hhs_mean_Matched (IPC-DIEM)",
-    "HHS SD (matched)"       = "hhs_sd_Matched (IPC-DIEM)",
-    "rCSI mean (full)"       = "rcsi_score_mean_Full DIEM",
-    "rCSI SD (full)"         = "rcsi_score_sd_Full DIEM",
-    "rCSI mean (matched)"    = "rcsi_score_mean_Matched (IPC-DIEM)",
-    "rCSI SD (matched)"      = "rcsi_score_sd_Matched (IPC-DIEM)"
+    "fcs_meansd_Full DIEM",            "fcs_meansd_Matched (IPC-DIEM)",
+    "hdds_meansd_Full DIEM",           "hdds_meansd_Matched (IPC-DIEM)",
+    "hhs_meansd_Full DIEM",            "hhs_meansd_Matched (IPC-DIEM)",
+    "rcsi_meansd_Full DIEM",           "rcsi_meansd_Matched (IPC-DIEM)"
   )
 
-write_paper_table(appendix_comparison,
-  file.path(finalTablesFolder, "TableA5_full_vs_matched_DIEM.xlsx"))
+local({
+  df <- appendix_comparison %>% rename(Country = adm0_name)
+  wb <- createWorkbook()
+  sh <- "Sheet1"
+  addWorksheet(wb, sh)
+
+  # Row 1: top-level indicator groups
+  writeData(wb, sh, startRow = 1, startCol = 1, colNames = FALSE, x = data.frame(
+    A = "Country",
+    B = "FCS",  C = "",
+    D = "HDDS", E = "",
+    F = "HHS",  G = "",
+    H = "rCSI", I = ""
+  ))
+  mergeCells(wb, sh, rows = 1, cols = 2:3)
+  mergeCells(wb, sh, rows = 1, cols = 4:5)
+  mergeCells(wb, sh, rows = 1, cols = 6:7)
+  mergeCells(wb, sh, rows = 1, cols = 8:9)
+
+  # Row 2: DIEM / matched sub-headers
+  writeData(wb, sh, startRow = 2, startCol = 1, colNames = FALSE, x = data.frame(
+    A = "Country",
+    B = "FCS (DIEM)",   C = "FCS (matched)",
+    D = "HDDS (DIEM)",  E = "HDDS (matched)",
+    F = "HHS (DIEM)",   G = "HHS (matched)",
+    H = "rCSI (DIEM)",  I = "rCSI (matched)"
+  ))
+
+  # Data
+  writeData(wb, sh, x = df, startRow = 3, startCol = 1, colNames = FALSE)
+
+  header_style <- createStyle(textDecoration = "bold", halign = "center", valign = "center",
+                              wrapText = TRUE, fontName = "Times New Roman", fontSize = 9,
+                              border = "TopBottomLeftRight", borderStyle = "thin", fgFill = "#BDD7EE")
+  left_style   <- createStyle(halign = "left",   valign = "center",
+                              fontName = "Times New Roman", fontSize = 9,
+                              border = "TopBottomLeftRight", borderStyle = "thin")
+  body_style   <- createStyle(halign = "center", valign = "center",
+                              fontName = "Times New Roman", fontSize = 9,
+                              border = "TopBottomLeftRight", borderStyle = "thin")
+
+  addStyle(wb, sh, header_style, rows = 1:2,              cols = 1:9, gridExpand = TRUE)
+  addStyle(wb, sh, left_style,   rows = 3:(nrow(df) + 2), cols = 1,   gridExpand = TRUE)
+  addStyle(wb, sh, body_style,   rows = 3:(nrow(df) + 2), cols = 2:9, gridExpand = TRUE)
+
+  fn_row <- nrow(df) + 4
+  writeData(wb, sh, x = "Mean (SD).", startRow = fn_row, startCol = 1, colNames = FALSE)
+  addStyle(wb, sh, createStyle(fontName = "Times New Roman", fontSize = 9,
+                               textDecoration = "italic", halign = "left"),
+           rows = fn_row, cols = 1)
+
+  setColWidths(wb, sh, cols = 1,    widths = 20)
+  setColWidths(wb, sh, cols = 2:9,  widths = 14)
+  saveWorkbook(wb, file.path(finalTablesFolder, "TableA5_full_vs_matched_DIEM.xlsx"), overwrite = TRUE)
+})
 
 
 # ---- microData_2 ----
