@@ -3537,50 +3537,47 @@ indicatorGapsByPhase <- bind_rows(gap_FCS_byPhase, gap_RCSI_byPhase,gap_hdds_byP
     names_glue = "{.value}_phase{ipcphase}"
   )
 
-# now for fcs
+# Table 8: FCS FGT by country, IPC phases 3 and 4 only, with grouped column headers
 indicatorGapsByPhase_fcs <- indicatorGapsByPhase %>%
   select(adm0_name,
-    FCS_FGT0_phase1, FCS_FGT1_phase1,
-    FCS_FGT0_phase2, FCS_FGT1_phase2,
     FCS_FGT0_phase3, FCS_FGT1_phase3,
     FCS_FGT0_phase4, FCS_FGT1_phase4
-  )
+  ) %>%
+  rename(Country = adm0_name)
 
-# now for rcsi
-indicatorGapsByPhase_rcsi <- indicatorGapsByPhase %>%
-  select(adm0_name,
-    rcsi_FGT0_phase1, rcsi_FGT1_phase1,
-    rcsi_FGT0_phase2, rcsi_FGT1_phase2,
-    rcsi_FGT0_phase3, rcsi_FGT1_phase3,
-    rcsi_FGT0_phase4, rcsi_FGT1_phase4
-  )
+local({
+  df <- indicatorGapsByPhase_fcs
+  wb <- createWorkbook()
+  sh <- "Sheet1"
+  addWorksheet(wb, sh)
 
+  # Group header row
+  writeData(wb, sh, x = data.frame(A="Country", B="FCS gap IPC 3", C="", D="FCS gap IPC 4", E=""),
+            startRow = 1, startCol = 1, colNames = FALSE)
+  mergeCells(wb, sh, rows = 1, cols = 2:3)
+  mergeCells(wb, sh, rows = 1, cols = 4:5)
 
-# now for hdds
-indicatorGapsByPhase_hdds <- indicatorGapsByPhase %>%
-  select(adm0_name,
-    hdds_FGT0_phase1, hdds_FGT1_phase1,
-    hdds_FGT0_phase2, hdds_FGT1_phase2,
-    hdds_FGT0_phase3, hdds_FGT1_phase3,
-    hdds_FGT0_phase4, hdds_FGT1_phase4
-  )
+  # Sub-header row
+  writeData(wb, sh, x = data.frame(A="Country", B="FGT0", C="FGT1", D="FGT0", E="FGT1"),
+            startRow = 2, startCol = 1, colNames = FALSE)
 
-# now for hhs
-indicatorGapsByPhase_hhs <- indicatorGapsByPhase %>%
-  select(adm0_name,
-    hhs_FGT0_phase1, hhs_FGT1_phase1,
-    hhs_FGT0_phase2, hhs_FGT1_phase2,
-    hhs_FGT0_phase3, hhs_FGT1_phase3,
-    hhs_FGT0_phase4, hhs_FGT1_phase4
-  )
+  # Data
+  writeData(wb, sh, x = df, startRow = 3, startCol = 1, colNames = FALSE)
 
+  header_style <- createStyle(textDecoration = "bold", halign = "center", valign = "center",
+                              fontSize = 11, border = "TopBottomLeftRight", borderStyle = "thin")
+  body_style   <- createStyle(halign = "center", valign = "center", fontSize = 11,
+                              border = "TopBottomLeftRight", borderStyle = "thin")
+  left_style   <- createStyle(halign = "left",   valign = "center", fontSize = 11,
+                              border = "TopBottomLeftRight", borderStyle = "thin")
 
+  addStyle(wb, sh, header_style, rows = 1:2,              cols = 1:5, gridExpand = TRUE)
+  addStyle(wb, sh, left_style,   rows = 3:(nrow(df) + 2), cols = 1,   gridExpand = TRUE)
+  addStyle(wb, sh, body_style,   rows = 3:(nrow(df) + 2), cols = 2:5, gridExpand = TRUE)
 
-
-
-
-
-write_paper_table(indicatorGapsByPhase_fcs, file.path(finalTablesFolder, "Table8_FCS_FGT_by_country_phase.xlsx"))
+  setColWidths(wb, sh, cols = 1:5, widths = c(20, 10, 10, 10, 10))
+  saveWorkbook(wb, file.path(finalTablesFolder, "Table8_FCS_FGT_by_country_phase.xlsx"), overwrite = TRUE)
+})
 
 
 # AppendixA3.2: All-indicator FGT by country × phase (phases 3 and 4), separate columns
