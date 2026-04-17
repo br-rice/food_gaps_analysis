@@ -114,8 +114,8 @@ del <- read_csv(file.path(dataFolder, "DIEM Household surveys microdata_20251003
 DIEM_FoodSecurity_HH_Imported<- read_csv(file.path(dataFolder, "DIEM Household surveys microdata_20251003155124.csv")) 
 DIEM_FoodSecurity_HH <- DIEM_FoodSecurity_HH_Imported %>%
   select(2:14, 
-        # fies_rawscore, 
-         fcs, hhs, lcsi, hdds_score, rcsi_score, 
+         fies_rawscore,
+         fcs, hhs, lcsi, hdds_score, rcsi_score,
          weight_final, last_col()) %>%
   select(-c(adm0_m49))
 
