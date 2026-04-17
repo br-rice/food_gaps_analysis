@@ -2869,12 +2869,10 @@ p1 <- ggplot(summary_gap, aes(x = factor(area_overall_phase), y = pct_below, fil
   theme_minimal() +
   theme(legend.position = "none")
 
-p2 <- ggplot(microData_FCS %>% filter(gap > 0),
-             aes(x = factor(area_overall_phase), y = gap, fill = factor(area_overall_phase))) +
+p2 <- ggplot(IPCDIEM_hh, aes(x = factor(area_overall_phase), y = fcs, fill = factor(area_overall_phase))) +
   geom_boxplot(alpha = 0.6) +
   labs(
-    x = "IPC Phase", y = "Dist. from gap",
-    title = "Gap below threshold"
+    x = "IPC Phase", y = "FCS score"
   ) +
   theme_minimal() +
   theme(legend.position = "none")
@@ -2882,7 +2880,8 @@ p2 <- ggplot(microData_FCS %>% filter(gap > 0),
 # Combine vertically (sharing the same x-axis)
 combined_plot <- p1 / p2 +
   plot_layout(heights = c(1, 1.2)) +
-  plot_annotation(title = "Food Consumption Score")
+  plot_annotation(title = "Food Consumption Score",
+                  theme = theme(plot.title = element_text(size = 10, hjust = 0.5)))
 
 # Display it
 combined_plot
@@ -3002,12 +3001,10 @@ p1 <- ggplot(summary_gap, aes(x = factor(area_overall_phase), y = pct_below, fil
   theme_minimal() +
   theme(legend.position = "none")
 
-p2 <- ggplot(microData_RCSI %>% filter(gap > 0),
-             aes(x = factor(area_overall_phase), y = gap, fill = factor(area_overall_phase))) +
+p2 <- ggplot(IPCDIEM_hh, aes(x = factor(area_overall_phase), y = rcsi_score, fill = factor(area_overall_phase))) +
   geom_boxplot(alpha = 0.6) +
   labs(
-    x = "IPC Phase", y = "Dist. from gap",
-    title = "Gap below threshold"
+    x = "IPC Phase", y = "rCSI score"
   ) +
   theme_minimal() +
   theme(legend.position = "none")
@@ -3015,7 +3012,8 @@ p2 <- ggplot(microData_RCSI %>% filter(gap > 0),
 # Combine vertically (sharing the same x-axis)
 combined_plot <- p1 / p2 +
   plot_layout(heights = c(1, 1.2)) +
-  plot_annotation(title = "RCSI")
+  plot_annotation(title = "rCSI",
+                  theme = theme(plot.title = element_text(size = 10, hjust = 0.5)))
 
 # Display it
 combined_plot
@@ -3181,12 +3179,10 @@ p1 <- ggplot(summary_gap, aes(x = factor(area_overall_phase), y = pct_below, fil
   theme_minimal() +
   theme(legend.position = "none")
 
-p2 <- ggplot(microData_hdds %>% filter(gap > 0),
-             aes(x = factor(area_overall_phase), y = gap, fill = factor(area_overall_phase))) +
+p2 <- ggplot(IPCDIEM_hh, aes(x = factor(area_overall_phase), y = hdds_score, fill = factor(area_overall_phase))) +
   geom_boxplot(alpha = 0.6) +
   labs(
-    x = "IPC Phase", y = "Dist. from gap",
-    title = "Gap below threshold"
+    x = "IPC Phase", y = "HDDS score"
   ) +
   theme_minimal() +
   theme(legend.position = "none")
@@ -3194,7 +3190,8 @@ p2 <- ggplot(microData_hdds %>% filter(gap > 0),
 # Combine vertically (sharing the same x-axis)
 combined_plot <- p1 / p2 +
   plot_layout(heights = c(1, 1.2)) +
-  plot_annotation(title = "HDDS")
+  plot_annotation(title = "HDDS",
+                  theme = theme(plot.title = element_text(size = 10, hjust = 0.5)))
 
 # Display it
 combined_plot
@@ -3356,13 +3353,10 @@ p1 <- ggplot(summary_gap, aes(x = factor(area_overall_phase), y = pct_below, fil
   theme_minimal() +
   theme(legend.position = "none")
 
-del <- microData_hhs %>% filter(gap > 0) %>% select(area_overall_phase, gap)
-p2 <- ggplot(microData_hhs %>% filter(gap > 0),
-             aes(x = factor(area_overall_phase), y = gap, fill = factor(area_overall_phase))) +
+p2 <- ggplot(IPCDIEM_hh, aes(x = factor(area_overall_phase), y = hhs, fill = factor(area_overall_phase))) +
   geom_boxplot(alpha = 0.6) +
   labs(
-    x = "IPC Phase", y = "Dist. from gap",
-    title = "Gap below threshold"
+    x = "IPC Phase", y = "HHS score"
   ) +
   theme_minimal() +
   theme(legend.position = "none")
@@ -3370,7 +3364,8 @@ p2 <- ggplot(microData_hhs %>% filter(gap > 0),
 # Combine vertically (sharing the same x-axis)
 combined_plot <- p1 / p2 +
   plot_layout(heights = c(1, 1.2)) +
-  plot_annotation(title = "HHS")
+  plot_annotation(title = "HHS",
+                  theme = theme(plot.title = element_text(size = 10, hjust = 0.5)))
 
 # Display it
 combined_plot
