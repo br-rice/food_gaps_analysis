@@ -42,10 +42,12 @@ write_paper_table <- function(df, filepath, sheet = "Sheet1", footnote = NULL) {
   writeData(wb, sheet = sheet, x = df, startCol = 1, startRow = 1,
             colNames = TRUE, rowNames = FALSE)
 
+  df <- df %>% mutate(across(where(is.numeric), ~round(., 1)))
+
   header_style <- createStyle(
     textDecoration = "bold", halign = "center", valign = "center",
     wrapText = TRUE, fontName = "Times New Roman", fontSize = 9,
-    border = "TopBottomLeftRight", borderStyle = "thin"
+    border = "TopBottomLeftRight", borderStyle = "thin", fgFill = "#BDD7EE"
   )
   addStyle(wb, sheet = sheet, style = header_style,
            rows = 1, cols = 1:ncol(df), gridExpand = TRUE)
@@ -84,16 +86,18 @@ write_paper_table <- function(df, filepath, sheet = "Sheet1", footnote = NULL) {
 # Diagonal cells (value == 1) are left unshaded.
 write_correlation_table <- function(df, filepath, sheet = "Sheet1") {
   # Round numeric columns to 3 decimal places; diagonal (== 1) stays as 1
-  df <- df %>% mutate(across(where(is.numeric), ~round(., 3)))
+  df <- df %>% mutate(across(where(is.numeric), ~round(., 2)))
   wb <- createWorkbook()
   addWorksheet(wb, sheet)
   writeData(wb, sheet = sheet, x = df, startCol = 1, startRow = 1,
             colNames = TRUE, rowNames = FALSE)
 
+  df <- df %>% mutate(across(where(is.numeric), ~round(., 1)))
+
   header_style <- createStyle(
     textDecoration = "bold", halign = "center", valign = "center",
     wrapText = TRUE, fontName = "Times New Roman", fontSize = 9,
-    border = "TopBottomLeftRight", borderStyle = "thin"
+    border = "TopBottomLeftRight", borderStyle = "thin", fgFill = "#BDD7EE"
   )
   addStyle(wb, sheet = sheet, style = header_style,
            rows = 1, cols = 1:ncol(df), gridExpand = TRUE)
@@ -173,6 +177,54 @@ DIEM_FoodSecurity_HHPost2022 <- readRDS(file.path(dataFolder, "DIEM_hhpost2022An
 # ---- importMatchedDIEMAndIPC_2 ----
 IPCDIEM_hh_imported <- readRDS(file.path(dataFolder, "IPC_DIEM_hh_joinedAndClean.rds"))
 IPCDIEM_hh <- IPCDIEM_hh_imported
+
+# ---- dedup_diagnostics ----
+# Diagnostics: before vs after deduplication to closest IPC match per (household, survey round)
+
+cat("=== BEFORE deduplication ===\n")
+cat("Total rows (household × IPC match pairs):", nrow(IPCDIEM_hh), "\n")
+cat("Unique households (OBJECTID):", n_distinct(IPCDIEM_hh$OBJECTID), "\n")
+cat("Unique household-rounds (OBJECTID × survey_date):", n_distinct(paste(IPCDIEM_hh$OBJECTID, IPCDIEM_hh$survey_date)), "\n")
+
+before_by_country <- IPCDIEM_hh %>%
+  group_by(adm0_name) %>%
+  summarise(
+    rows            = n(),
+    unique_hh       = n_distinct(OBJECTID),
+    unique_hh_round = n_distinct(paste(OBJECTID, survey_date)),
+    .groups = "drop"
+  )
+print(before_by_country)
+
+# How many household-rounds have more than one IPC match?
+multi_match <- IPCDIEM_hh %>%
+  group_by(OBJECTID, survey_date) %>%
+  summarise(n_ipc_matches = n(), .groups = "drop")
+cat("\nHousehold-rounds with >1 IPC match:", sum(multi_match$n_ipc_matches > 1), "\n")
+cat("Household-rounds with exactly 1 IPC match:", sum(multi_match$n_ipc_matches == 1), "\n")
+
+# Deduplicate: per (household, survey round) keep closest IPC analysis in time
+IPCDIEM_hh <- IPCDIEM_hh %>%
+  group_by(OBJECTID, survey_date) %>%
+  slice_min(abs(as.numeric(survey_date - country_analysis_date)), n = 1, with_ties = FALSE) %>%
+  ungroup()
+
+cat("\n=== AFTER deduplication ===\n")
+cat("Total rows:", nrow(IPCDIEM_hh), "\n")
+cat("Unique households (OBJECTID):", n_distinct(IPCDIEM_hh$OBJECTID), "\n")
+cat("Unique household-rounds:", n_distinct(paste(IPCDIEM_hh$OBJECTID, IPCDIEM_hh$survey_date)), "\n")
+
+after_by_country <- IPCDIEM_hh %>%
+  group_by(adm0_name) %>%
+  summarise(
+    rows            = n(),
+    unique_hh       = n_distinct(OBJECTID),
+    unique_hh_round = n_distinct(paste(OBJECTID, survey_date)),
+    .groups = "drop"
+  )
+print(after_by_country)
+
+cat("\nRows removed by deduplication:", nrow(IPCDIEM_hh_imported) - nrow(IPCDIEM_hh), "\n")
 
 
 
@@ -277,6 +329,41 @@ del_hh <- IPCDIEM_hh %>%
   rename(Country = adm0_name)
 
 write_paper_table(del_hh, file.path(finalTablesFolder, "Table1b_matched_households_by_country_and_phase.xlsx"))
+
+# ---- multiplePhaseMatches ----
+# Households matched to 2+ different IPC phases (across different IPC analyses)
+multi_phase <- IPCDIEM_hh %>%
+  group_by(OBJECTID) %>%
+  summarise(n_phases = n_distinct(area_overall_phase), .groups = "drop")
+
+multi_phase_summary <- IPCDIEM_hh %>%
+  select(OBJECTID, adm0_name) %>%
+  distinct() %>%
+  left_join(multi_phase, by = "OBJECTID") %>%
+  group_by(adm0_name) %>%
+  summarise(
+    n_hh_total        = n(),
+    n_hh_multi_phase  = sum(n_phases > 1),
+    pct_multi_phase   = round(100 * mean(n_phases > 1), 1),
+    .groups = "drop"
+  ) %>%
+  bind_rows(
+    summarise(.,
+      adm0_name        = "Overall",
+      n_hh_total       = sum(n_hh_total),
+      n_hh_multi_phase = sum(n_hh_multi_phase),
+      pct_multi_phase  = round(100 * sum(n_hh_multi_phase) / sum(n_hh_total), 1)
+    )
+  ) %>%
+  rename(
+    Country                           = adm0_name,
+    "Total matched HH"                = n_hh_total,
+    "HH matched to 2+ IPC phases (n)" = n_hh_multi_phase,
+    "HH matched to 2+ IPC phases (%)" = pct_multi_phase
+  )
+
+write_paper_table(multi_phase_summary,
+  file.path(finalTablesFolder, "Table_multi_phase_matches.xlsx"))
 
 # ---- hhDataCompleteness ----
 # Share of matched households with no missing in ANY of FCS, HDDS, HHS, RCSI
@@ -1660,8 +1747,7 @@ IPCDIEM_hh %>%
 toShow_base <- IPCDIEM_hh %>%
   select(OBJECTID, area_overall_phase, fcs, hdds_score, rcsi_score,
          any_of("fies_rawscore"), hhs) %>%
-  ungroup() %>%
-  group_by(OBJECTID) %>% slice(1) %>% ungroup()
+  ungroup()
 
 # Add FIES column of NAs if not present in dataset
 if (!"fies_rawscore" %in% names(toShow_base)) {
@@ -2464,7 +2550,6 @@ vars_compare <- c("fcs", "hdds_score", "hhs", "rcsi_score")
 summarize_for_comparison <- function(df, group_label) {
   df %>%
     select(OBJECTID, adm0_name, all_of(vars_compare)) %>%
-    group_by(OBJECTID) %>% slice(1) %>% ungroup() %>%
     group_by(adm0_name) %>%
     summarise(across(all_of(vars_compare),
       list(
@@ -2489,7 +2574,6 @@ matched_summary <- matched_summary %>% filter(adm0_name %in% countries_in_both)
 summarize_overall <- function(df, group_label) {
   df %>%
     select(OBJECTID, all_of(vars_compare)) %>%
-    group_by(OBJECTID) %>% slice(1) %>% ungroup() %>%
     summarise(across(all_of(vars_compare),
       list(
         mean = ~round(mean(.x, na.rm = TRUE), 1),
@@ -2511,46 +2595,81 @@ appendix_comparison <- bind_rows(overall_full, overall_matched, full_summary, ma
          hdds_score_mean, hdds_score_sd,
          hhs_mean, hhs_sd,
          rcsi_score_mean, rcsi_score_sd) %>%
+  mutate(
+    fcs_meansd        = fmt_mean_sd(fcs_mean,        fcs_sd),
+    hdds_meansd       = fmt_mean_sd(hdds_score_mean, hdds_score_sd),
+    hhs_meansd        = fmt_mean_sd(hhs_mean,        hhs_sd),
+    rcsi_meansd       = fmt_mean_sd(rcsi_score_mean, rcsi_score_sd)
+  ) %>%
+  select(adm0_name, sample, fcs_meansd, hdds_meansd, hhs_meansd, rcsi_meansd) %>%
   pivot_wider(
     names_from  = sample,
-    values_from = c(fcs_mean, fcs_sd,
-                    hdds_score_mean, hdds_score_sd,
-                    hhs_mean, hhs_sd,
-                    rcsi_score_mean, rcsi_score_sd)
+    values_from = c(fcs_meansd, hdds_meansd, hhs_meansd, rcsi_meansd)
   ) %>%
+  arrange(adm0_name == "Overall", adm0_name) %>%
   select(
     adm0_name,
-    "fcs_mean_Full DIEM",        "fcs_sd_Full DIEM",
-    "fcs_mean_Matched (IPC-DIEM)", "fcs_sd_Matched (IPC-DIEM)",
-    "hdds_score_mean_Full DIEM", "hdds_score_sd_Full DIEM",
-    "hdds_score_mean_Matched (IPC-DIEM)", "hdds_score_sd_Matched (IPC-DIEM)",
-    "hhs_mean_Full DIEM",        "hhs_sd_Full DIEM",
-    "hhs_mean_Matched (IPC-DIEM)", "hhs_sd_Matched (IPC-DIEM)",
-    "rcsi_score_mean_Full DIEM", "rcsi_score_sd_Full DIEM",
-    "rcsi_score_mean_Matched (IPC-DIEM)", "rcsi_score_sd_Matched (IPC-DIEM)"
-  ) %>%
-  rename(
-    Country                  = adm0_name,
-    "FCS mean (full)"        = "fcs_mean_Full DIEM",
-    "FCS SD (full)"          = "fcs_sd_Full DIEM",
-    "FCS mean (matched)"     = "fcs_mean_Matched (IPC-DIEM)",
-    "FCS SD (matched)"       = "fcs_sd_Matched (IPC-DIEM)",
-    "HDDS mean (full)"       = "hdds_score_mean_Full DIEM",
-    "HDDS SD (full)"         = "hdds_score_sd_Full DIEM",
-    "HDDS mean (matched)"    = "hdds_score_mean_Matched (IPC-DIEM)",
-    "HDDS SD (matched)"      = "hdds_score_sd_Matched (IPC-DIEM)",
-    "HHS mean (full)"        = "hhs_mean_Full DIEM",
-    "HHS SD (full)"          = "hhs_sd_Full DIEM",
-    "HHS mean (matched)"     = "hhs_mean_Matched (IPC-DIEM)",
-    "HHS SD (matched)"       = "hhs_sd_Matched (IPC-DIEM)",
-    "rCSI mean (full)"       = "rcsi_score_mean_Full DIEM",
-    "rCSI SD (full)"         = "rcsi_score_sd_Full DIEM",
-    "rCSI mean (matched)"    = "rcsi_score_mean_Matched (IPC-DIEM)",
-    "rCSI SD (matched)"      = "rcsi_score_sd_Matched (IPC-DIEM)"
+    "fcs_meansd_Full DIEM",            "fcs_meansd_Matched (IPC-DIEM)",
+    "hdds_meansd_Full DIEM",           "hdds_meansd_Matched (IPC-DIEM)",
+    "hhs_meansd_Full DIEM",            "hhs_meansd_Matched (IPC-DIEM)",
+    "rcsi_meansd_Full DIEM",           "rcsi_meansd_Matched (IPC-DIEM)"
   )
 
-write_paper_table(appendix_comparison,
-  file.path(finalTablesFolder, "TableA5_full_vs_matched_DIEM.xlsx"))
+local({
+  df <- appendix_comparison %>% rename(Country = adm0_name)
+  wb <- createWorkbook()
+  sh <- "Sheet1"
+  addWorksheet(wb, sh)
+
+  # Row 1: top-level indicator groups
+  writeData(wb, sh, startRow = 1, startCol = 1, colNames = FALSE, x = data.frame(
+    A = "Country",
+    B = "FCS",  C = "",
+    D = "HDDS", E = "",
+    F = "HHS",  G = "",
+    H = "rCSI", I = ""
+  ))
+  mergeCells(wb, sh, rows = 1, cols = 2:3)
+  mergeCells(wb, sh, rows = 1, cols = 4:5)
+  mergeCells(wb, sh, rows = 1, cols = 6:7)
+  mergeCells(wb, sh, rows = 1, cols = 8:9)
+
+  # Row 2: DIEM / matched sub-headers
+  writeData(wb, sh, startRow = 2, startCol = 1, colNames = FALSE, x = data.frame(
+    A = "Country",
+    B = "FCS (DIEM)",   C = "FCS (matched)",
+    D = "HDDS (DIEM)",  E = "HDDS (matched)",
+    F = "HHS (DIEM)",   G = "HHS (matched)",
+    H = "rCSI (DIEM)",  I = "rCSI (matched)"
+  ))
+
+  # Data
+  writeData(wb, sh, x = df, startRow = 3, startCol = 1, colNames = FALSE)
+
+  header_style <- createStyle(textDecoration = "bold", halign = "center", valign = "center",
+                              wrapText = TRUE, fontName = "Times New Roman", fontSize = 9,
+                              border = "TopBottomLeftRight", borderStyle = "thin", fgFill = "#BDD7EE")
+  left_style   <- createStyle(halign = "left",   valign = "center",
+                              fontName = "Times New Roman", fontSize = 9,
+                              border = "TopBottomLeftRight", borderStyle = "thin")
+  body_style   <- createStyle(halign = "center", valign = "center",
+                              fontName = "Times New Roman", fontSize = 9,
+                              border = "TopBottomLeftRight", borderStyle = "thin")
+
+  addStyle(wb, sh, header_style, rows = 1:2,              cols = 1:9, gridExpand = TRUE)
+  addStyle(wb, sh, left_style,   rows = 3:(nrow(df) + 2), cols = 1,   gridExpand = TRUE)
+  addStyle(wb, sh, body_style,   rows = 3:(nrow(df) + 2), cols = 2:9, gridExpand = TRUE)
+
+  fn_row <- nrow(df) + 4
+  writeData(wb, sh, x = "Mean (SD).", startRow = fn_row, startCol = 1, colNames = FALSE)
+  addStyle(wb, sh, createStyle(fontName = "Times New Roman", fontSize = 9,
+                               textDecoration = "italic", halign = "left"),
+           rows = fn_row, cols = 1)
+
+  setColWidths(wb, sh, cols = 1,    widths = 20)
+  setColWidths(wb, sh, cols = 2:9,  widths = 14)
+  saveWorkbook(wb, file.path(finalTablesFolder, "TableA5_full_vs_matched_DIEM.xlsx"), overwrite = TRUE)
+})
 
 
 # ---- microData_2 ----
@@ -3451,7 +3570,7 @@ local({
 
   header_style <- createStyle(textDecoration = "bold", halign = "center", valign = "center",
                               wrapText = TRUE, fontName = "Times New Roman", fontSize = 9,
-                              border = "TopBottomLeftRight", borderStyle = "thin")
+                              border = "TopBottomLeftRight", borderStyle = "thin", fgFill = "#BDD7EE")
   left_style   <- createStyle(halign = "left",   valign = "center",
                               fontName = "Times New Roman", fontSize = 9,
                               border = "TopBottomLeftRight", borderStyle = "thin")
@@ -3618,10 +3737,11 @@ local({
             startRow = 2, startCol = 1, colNames = FALSE)
 
   # Data
+  df <- df %>% mutate(across(where(is.numeric), ~round(., 1)))
   writeData(wb, sh, x = df, startRow = 3, startCol = 1, colNames = FALSE)
 
   header_style <- createStyle(textDecoration = "bold", halign = "center", valign = "center",
-                              fontName = "Times New Roman", fontSize = 9, border = "TopBottomLeftRight", borderStyle = "thin")
+                              fontName = "Times New Roman", fontSize = 9, border = "TopBottomLeftRight", borderStyle = "thin", fgFill = "#BDD7EE")
   body_style   <- createStyle(halign = "center", valign = "center", fontName = "Times New Roman", fontSize = 9,
                               border = "TopBottomLeftRight", borderStyle = "thin")
   left_style   <- createStyle(halign = "left",   valign = "center", fontName = "Times New Roman", fontSize = 9,
@@ -3639,13 +3759,75 @@ local({
 # AppendixA3.2: All-indicator FGT by country × phase (phases 3 and 4), separate columns
 AppendixA3_2 <- indicatorGapsByPhase %>%
   select(adm0_name,
-    FCS_FGT0_phase3, FCS_FGT1_phase3, FCS_FGT0_phase4, FCS_FGT1_phase4,
-    rcsi_FGT0_phase3, rcsi_FGT1_phase3, rcsi_FGT0_phase4, rcsi_FGT1_phase4,
+    FCS_FGT0_phase3,  FCS_FGT1_phase3,  FCS_FGT0_phase4,  FCS_FGT1_phase4,
     hdds_FGT0_phase3, hdds_FGT1_phase3, hdds_FGT0_phase4, hdds_FGT1_phase4,
-    hhs_FGT0_phase3, hhs_FGT1_phase3, hhs_FGT0_phase4, hhs_FGT1_phase4
+    rcsi_FGT0_phase3, rcsi_FGT1_phase3, rcsi_FGT0_phase4, rcsi_FGT1_phase4,
+    hhs_FGT0_phase3,  hhs_FGT1_phase3,  hhs_FGT0_phase4,  hhs_FGT1_phase4
   )
 
-write_paper_table(AppendixA3_2, file.path(finalTablesFolder, "TableA4_FGT_by_country_phase.xlsx"))
+local({
+  df <- AppendixA3_2 %>%
+    rename(Country = adm0_name) %>%
+    mutate(across(where(is.numeric), ~round(., 1)))
+
+  wb <- createWorkbook()
+  sh <- "Sheet1"
+  addWorksheet(wb, sh)
+
+  # Row 1: top-level indicator groups (FCS cols 2-5, HDDS 6-9, rCSI 10-13, HHS 14-17)
+  writeData(wb, sh, startRow = 1, startCol = 1, colNames = FALSE, x = data.frame(
+    A="Country", B="FCS", C="", D="", E="",
+    F="HDDS",    G="", H="", I="",
+    J="rCSI",    K="", L="", M="",
+    N="HHS",     O="", P="", Q=""
+  ))
+  mergeCells(wb, sh, rows = 1, cols = 2:5)
+  mergeCells(wb, sh, rows = 1, cols = 6:9)
+  mergeCells(wb, sh, rows = 1, cols = 10:13)
+  mergeCells(wb, sh, rows = 1, cols = 14:17)
+
+  # Row 2: phase groups within each indicator
+  writeData(wb, sh, startRow = 2, startCol = 1, colNames = FALSE, x = data.frame(
+    A="Country",
+    B="FCS gap IPC 3",  C="",  D="FCS gap IPC 4",  E="",
+    F="HDDS gap IPC 3", G="",  H="HDDS gap IPC 4",  I="",
+    J="rCSI gap IPC 3", K="",  L="rCSI gap IPC 4",  M="",
+    N="HHS gap IPC 3",  O="",  P="HHS gap IPC 4",   Q=""
+  ))
+  for (start_col in c(2, 4, 6, 8, 10, 12, 14, 16)) {
+    mergeCells(wb, sh, rows = 2, cols = start_col:(start_col + 1))
+  }
+
+  # Row 3: FGT0 / FGT1 sub-headers
+  writeData(wb, sh, startRow = 3, startCol = 1, colNames = FALSE, x = data.frame(
+    A="Country",
+    B="FGT0", C="FGT1", D="FGT0", E="FGT1",
+    F="FGT0", G="FGT1", H="FGT0", I="FGT1",
+    J="FGT0", K="FGT1", L="FGT0", M="FGT1",
+    N="FGT0", O="FGT1", P="FGT0", Q="FGT1"
+  ))
+
+  # Data
+  writeData(wb, sh, x = df, startRow = 4, startCol = 1, colNames = FALSE)
+
+  header_style <- createStyle(textDecoration = "bold", halign = "center", valign = "center",
+                              wrapText = TRUE, fontName = "Times New Roman", fontSize = 9,
+                              border = "TopBottomLeftRight", borderStyle = "thin", fgFill = "#BDD7EE")
+  left_style   <- createStyle(halign = "left",   valign = "center",
+                              fontName = "Times New Roman", fontSize = 9,
+                              border = "TopBottomLeftRight", borderStyle = "thin")
+  body_style   <- createStyle(halign = "center", valign = "center",
+                              fontName = "Times New Roman", fontSize = 9,
+                              border = "TopBottomLeftRight", borderStyle = "thin")
+
+  addStyle(wb, sh, header_style, rows = 1:3,              cols = 1:17, gridExpand = TRUE)
+  addStyle(wb, sh, left_style,   rows = 4:(nrow(df) + 3), cols = 1,    gridExpand = TRUE)
+  addStyle(wb, sh, body_style,   rows = 4:(nrow(df) + 3), cols = 2:17, gridExpand = TRUE)
+
+  setColWidths(wb, sh, cols = 1,     widths = 20)
+  setColWidths(wb, sh, cols = 2:17,  widths = 8)
+  saveWorkbook(wb, file.path(finalTablesFolder, "TableA4_FGT_by_country_phase.xlsx"), overwrite = TRUE)
+})
 
 
 

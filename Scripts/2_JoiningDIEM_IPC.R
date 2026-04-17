@@ -47,8 +47,8 @@ IPCdataImported <- readRDS(file.path(dataFolder, "IPCdata_imported.rds")) %>%
 
 # creating date overlapping
 DIEM_FoodSecurity <- DIEM_FoodSecurityImported %>%
-  mutate(start_dateForMatching_DIEM = coll_start_date %m-% months(5),
-         end_dateForMatching_DIEM = coll_start_date %m+% months(5)) %>%
+  mutate(start_dateForMatching_DIEM = coll_start_date %m-% months(3),
+         end_dateForMatching_DIEM = coll_start_date %m+% months(3)) %>%
   relocate(c(start_dateForMatching_DIEM, end_dateForMatching_DIEM), .before =coll_start_date ) %>%
   select(iso3, adm2_name, adm_name, coll_start_date, start_dateForMatching_DIEM, end_dateForMatching_DIEM, 
          # all the indicators we want
@@ -72,8 +72,8 @@ DIEM_FoodSecurity <- DIEM_FoodSecurityImported %>%
          
 
 IPCdata <- IPCdataImported %>%
-  mutate(start_dateForMatching_IPC = country_analysis_date %m-% months(5),
-         end_dateForMatching_IPC = country_analysis_date %m+% months(5)) %>%
+  mutate(start_dateForMatching_IPC = country_analysis_date %m-% months(3),
+         end_dateForMatching_IPC = country_analysis_date %m+% months(3)) %>%
   relocate(c(start_dateForMatching_IPC, end_dateForMatching_IPC), .before = country_analysis_date )
 
 # checking which were matched 
@@ -154,8 +154,8 @@ DIEM_hh_combined <- bind_rows(
 ) %>%
   rename(iso3 = adm0_iso3) %>%
   # create time window for matching
-  mutate(start_dateForMatching_DIEM = survey_date %m-% months(5),
-         end_dateForMatching_DIEM = survey_date %m+% months(5)) %>%
+  mutate(start_dateForMatching_DIEM = survey_date %m-% months(3),
+         end_dateForMatching_DIEM = survey_date %m+% months(3)) %>%
   relocate(c(start_dateForMatching_DIEM, end_dateForMatching_DIEM), .before =survey_date ) %>%
   # determine  the admin level for matching to IPC
   rename(
@@ -284,8 +284,8 @@ IPCdataImported <- readRDS(file.path(dataFolder, "IPCdata_imported.rds")) %>%
   mutate(country_analysis_date = as.Date(country_analysis_date)) %>%
   rename(adm_name = area_name) %>%
   # creating date overlapping
-  mutate(start_dateForMatching_IPC = country_analysis_date %m-% months(5),
-         end_dateForMatching_IPC = country_analysis_date %m+% months(5)) %>%
+  mutate(start_dateForMatching_IPC = country_analysis_date %m-% months(3),
+         end_dateForMatching_IPC = country_analysis_date %m+% months(3)) %>%
   relocate(c(start_dateForMatching_IPC, end_dateForMatching_IPC), .before = country_analysis_date )
 
 del <- IPCdataImported %>%
