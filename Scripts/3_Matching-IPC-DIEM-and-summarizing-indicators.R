@@ -44,14 +44,14 @@ write_paper_table <- function(df, filepath, sheet = "Sheet1", footnote = NULL) {
 
   header_style <- createStyle(
     textDecoration = "bold", halign = "center", valign = "center",
-    wrapText = TRUE, fontSize = 11,
+    wrapText = TRUE, fontName = "Times New Roman", fontSize = 9,
     border = "TopBottomLeftRight", borderStyle = "thin"
   )
   addStyle(wb, sheet = sheet, style = header_style,
            rows = 1, cols = 1:ncol(df), gridExpand = TRUE)
 
   first_col_style <- createStyle(
-    halign = "left", valign = "center", fontSize = 11,
+    halign = "left", valign = "center", fontName = "Times New Roman", fontSize = 9,
     border = "TopBottomLeftRight", borderStyle = "thin"
   )
   addStyle(wb, sheet = sheet, style = first_col_style,
@@ -59,7 +59,7 @@ write_paper_table <- function(df, filepath, sheet = "Sheet1", footnote = NULL) {
 
   if (ncol(df) > 1) {
     body_style <- createStyle(
-      halign = "center", valign = "center", fontSize = 11,
+      halign = "center", valign = "center", fontName = "Times New Roman", fontSize = 9,
       border = "TopBottomLeftRight", borderStyle = "thin"
     )
     addStyle(wb, sheet = sheet, style = body_style,
@@ -71,7 +71,7 @@ write_paper_table <- function(df, filepath, sheet = "Sheet1", footnote = NULL) {
     writeData(wb, sheet = sheet, x = footnote, startCol = 1, startRow = footnote_row,
               colNames = FALSE)
     addStyle(wb, sheet = sheet,
-             style = createStyle(fontSize = 10, textDecoration = "italic", halign = "left"),
+             style = createStyle(fontName = "Times New Roman", fontSize = 9, textDecoration = "italic", halign = "left"),
              rows = footnote_row, cols = 1)
   }
 
@@ -92,29 +92,29 @@ write_correlation_table <- function(df, filepath, sheet = "Sheet1") {
 
   header_style <- createStyle(
     textDecoration = "bold", halign = "center", valign = "center",
-    wrapText = TRUE, fontSize = 11,
+    wrapText = TRUE, fontName = "Times New Roman", fontSize = 9,
     border = "TopBottomLeftRight", borderStyle = "thin"
   )
   addStyle(wb, sheet = sheet, style = header_style,
            rows = 1, cols = 1:ncol(df), gridExpand = TRUE)
 
   first_col_style <- createStyle(
-    halign = "left", valign = "center", fontSize = 11,
+    halign = "left", valign = "center", fontName = "Times New Roman", fontSize = 9,
     border = "TopBottomLeftRight", borderStyle = "thin"
   )
   addStyle(wb, sheet = sheet, style = first_col_style,
            rows = 2:(nrow(df) + 1), cols = 1, gridExpand = TRUE)
 
-  green_style  <- createStyle(halign = "center", valign = "center", fontSize = 11,
+  green_style  <- createStyle(halign = "center", valign = "center", fontName = "Times New Roman", fontSize = 9,
                                border = "TopBottomLeftRight", borderStyle = "thin",
                                fgFill = "#CCFFCC")
-  yellow_style <- createStyle(halign = "center", valign = "center", fontSize = 11,
+  yellow_style <- createStyle(halign = "center", valign = "center", fontName = "Times New Roman", fontSize = 9,
                                border = "TopBottomLeftRight", borderStyle = "thin",
                                fgFill = "#FFFF99")
-  red_style    <- createStyle(halign = "center", valign = "center", fontSize = 11,
+  red_style    <- createStyle(halign = "center", valign = "center", fontName = "Times New Roman", fontSize = 9,
                                border = "TopBottomLeftRight", borderStyle = "thin",
                                fgFill = "#FFCCCC")
-  plain_style  <- createStyle(halign = "center", valign = "center", fontSize = 11,
+  plain_style  <- createStyle(halign = "center", valign = "center", fontName = "Times New Roman", fontSize = 9,
                                border = "TopBottomLeftRight", borderStyle = "thin")
 
   for (col_idx in 2:ncol(df)) {
@@ -397,7 +397,7 @@ write_paper_table(del, file.path(finalTablesFolder, "AppendixA1_time_coverage.xl
 #   halign = "center",
 #   valign = "center",
 #   wrapText = TRUE,
-#   fontSize = 11
+#   fontName = "Times New Roman", fontSize = 9
 # )
 # addStyle(
 #   wb,
@@ -1877,17 +1877,17 @@ wb_country_corr <- createWorkbook()
 
 # Styles for conditional shading (matching write_correlation_table)
 cc_header  <- createStyle(textDecoration = "bold", halign = "center", valign = "center",
-                          wrapText = TRUE, fontSize = 11,
+                          wrapText = TRUE, fontName = "Times New Roman", fontSize = 9,
                           border = "TopBottomLeftRight", borderStyle = "thin")
-cc_first   <- createStyle(halign = "left", valign = "center", fontSize = 11,
+cc_first   <- createStyle(halign = "left", valign = "center", fontName = "Times New Roman", fontSize = 9,
                           border = "TopBottomLeftRight", borderStyle = "thin")
-cc_green   <- createStyle(halign = "center", valign = "center", fontSize = 11,
+cc_green   <- createStyle(halign = "center", valign = "center", fontName = "Times New Roman", fontSize = 9,
                           border = "TopBottomLeftRight", borderStyle = "thin", fgFill = "#CCFFCC")
-cc_yellow  <- createStyle(halign = "center", valign = "center", fontSize = 11,
+cc_yellow  <- createStyle(halign = "center", valign = "center", fontName = "Times New Roman", fontSize = 9,
                           border = "TopBottomLeftRight", borderStyle = "thin", fgFill = "#FFFF99")
-cc_red     <- createStyle(halign = "center", valign = "center", fontSize = 11,
+cc_red     <- createStyle(halign = "center", valign = "center", fontName = "Times New Roman", fontSize = 9,
                           border = "TopBottomLeftRight", borderStyle = "thin", fgFill = "#FFCCCC")
-cc_plain   <- createStyle(halign = "center", valign = "center", fontSize = 11,
+cc_plain   <- createStyle(halign = "center", valign = "center", fontName = "Times New Roman", fontSize = 9,
                           border = "TopBottomLeftRight", borderStyle = "thin")
 
 for (adm in admin_list) {
@@ -3407,7 +3407,7 @@ gaps_Table_1 <- IPCdata_forIndicatorGaps %>%
   filter(!all(is.na(fgt1_FCS))) %>%
   ungroup() 
 
-# now on to the FCS table------------------------------------------------------------------
+# Table 9: FCS gap by country with grouped headers (IPC 3 / IPC 4)
 gaps_Table_fcs <- gaps_Table_1 %>%
   select(country_name, year, ipcphase, population, fgt1_FCS,
          cost_annual_millionsUSD_usingFCSgaps, total_cost_annual_millionsUSD_usingFCSgaps) %>%
@@ -3416,9 +3416,64 @@ gaps_Table_fcs <- gaps_Table_1 %>%
     names_from = ipcphase,
     values_from = c(population, fgt1_FCS, cost_annual_millionsUSD_usingFCSgaps),
     names_glue = "{.value}_phase{ipcphase}"
-  )
+  ) %>%
+  select(country_name, year,
+         population_phase3, fgt1_FCS_phase3, cost_annual_millionsUSD_usingFCSgaps_phase3,
+         population_phase4, fgt1_FCS_phase4, cost_annual_millionsUSD_usingFCSgaps_phase4,
+         total_cost_annual_millionsUSD_usingFCSgaps)
 
-write_paper_table(gaps_Table_fcs, file.path(finalTablesFolder, "Table9_FCS_cost_by_country.xlsx"))
+local({
+  df <- gaps_Table_fcs
+  wb <- createWorkbook()
+  sh <- "Sheet1"
+  addWorksheet(wb, sh)
+
+  # Row 1: group headers
+  writeData(wb, sh, startRow = 1, startCol = 1, colNames = FALSE, x = data.frame(
+    A = "Country", B = "Year",
+    C = "FCS gap IPC 3", D = "", E = "",
+    F = "FCS gap IPC 4", G = "", H = "",
+    I = "Total cost"
+  ))
+  mergeCells(wb, sh, rows = 1, cols = 3:5)
+  mergeCells(wb, sh, rows = 1, cols = 6:8)
+
+  # Row 2: sub-headers
+  writeData(wb, sh, startRow = 2, startCol = 1, colNames = FALSE, x = data.frame(
+    A = "Country", B = "Year",
+    C = "Population", D = "FGT1", E = "Cost*",
+    F = "Population", G = "FGT1", H = "Cost*",
+    I = "Total cost*"
+  ))
+
+  # Data
+  writeData(wb, sh, x = df, startRow = 3, startCol = 1, colNames = FALSE)
+
+  header_style <- createStyle(textDecoration = "bold", halign = "center", valign = "center",
+                              wrapText = TRUE, fontName = "Times New Roman", fontSize = 9,
+                              border = "TopBottomLeftRight", borderStyle = "thin")
+  left_style   <- createStyle(halign = "left",   valign = "center",
+                              fontName = "Times New Roman", fontSize = 9,
+                              border = "TopBottomLeftRight", borderStyle = "thin")
+  body_style   <- createStyle(halign = "center", valign = "center",
+                              fontName = "Times New Roman", fontSize = 9,
+                              border = "TopBottomLeftRight", borderStyle = "thin")
+
+  addStyle(wb, sh, header_style, rows = 1:2,              cols = 1:9, gridExpand = TRUE)
+  addStyle(wb, sh, left_style,   rows = 3:(nrow(df) + 2), cols = 1,   gridExpand = TRUE)
+  addStyle(wb, sh, body_style,   rows = 3:(nrow(df) + 2), cols = 2:9, gridExpand = TRUE)
+
+  # Footnote
+  fn_row <- nrow(df) + 4
+  writeData(wb, sh, x = "* Cost in millions USD (annual, based on $0.50/ration/day).",
+            startRow = fn_row, startCol = 1, colNames = FALSE)
+  addStyle(wb, sh, createStyle(fontName = "Times New Roman", fontSize = 9,
+                               textDecoration = "italic", halign = "left"),
+           rows = fn_row, cols = 1)
+
+  setColWidths(wb, sh, cols = 1:9, widths = c(20, 8, 14, 8, 10, 14, 8, 10, 12))
+  saveWorkbook(wb, file.path(finalTablesFolder, "Table9_FCS_cost_by_country.xlsx"), overwrite = TRUE)
+})
 
 # now on to the RCSI table------------------------------------------------------------------
 gaps_Table_rcsi <- gaps_Table_1 %>%
@@ -3543,6 +3598,7 @@ indicatorGapsByPhase_fcs <- indicatorGapsByPhase %>%
     FCS_FGT0_phase3, FCS_FGT1_phase3,
     FCS_FGT0_phase4, FCS_FGT1_phase4
   ) %>%
+  filter(!if_all(c(FCS_FGT0_phase3, FCS_FGT1_phase3, FCS_FGT0_phase4, FCS_FGT1_phase4), is.na)) %>%
   rename(Country = adm0_name)
 
 local({
@@ -3565,10 +3621,10 @@ local({
   writeData(wb, sh, x = df, startRow = 3, startCol = 1, colNames = FALSE)
 
   header_style <- createStyle(textDecoration = "bold", halign = "center", valign = "center",
-                              fontSize = 11, border = "TopBottomLeftRight", borderStyle = "thin")
-  body_style   <- createStyle(halign = "center", valign = "center", fontSize = 11,
+                              fontName = "Times New Roman", fontSize = 9, border = "TopBottomLeftRight", borderStyle = "thin")
+  body_style   <- createStyle(halign = "center", valign = "center", fontName = "Times New Roman", fontSize = 9,
                               border = "TopBottomLeftRight", borderStyle = "thin")
-  left_style   <- createStyle(halign = "left",   valign = "center", fontSize = 11,
+  left_style   <- createStyle(halign = "left",   valign = "center", fontName = "Times New Roman", fontSize = 9,
                               border = "TopBottomLeftRight", borderStyle = "thin")
 
   addStyle(wb, sh, header_style, rows = 1:2,              cols = 1:5, gridExpand = TRUE)
@@ -3882,7 +3938,7 @@ write_paper_table(dataForExcel, file.path(finalTablesFolder, "Table4_food_assist
 #   halign = "center",
 #   valign = "center",
 #   wrapText = TRUE,
-#   fontSize = 11
+#   fontName = "Times New Roman", fontSize = 9
 # )
 # addStyle(
 #   wb,
