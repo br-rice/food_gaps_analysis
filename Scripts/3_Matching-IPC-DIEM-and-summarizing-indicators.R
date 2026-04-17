@@ -36,7 +36,7 @@ if (!dir.exists(finalFiguresFolder)) dir.create(finalFiguresFolder, recursive = 
 # Helper: export a data frame to Excel matching the paper's table style
 # Style: 11pt throughout; headers bold + centered; body first col left-aligned,
 # remaining cols centered; thin black borders on all cells; no background shading.
-write_paper_table <- function(df, filepath, sheet = "Sheet1") {
+write_paper_table <- function(df, filepath, sheet = "Sheet1", footnote = NULL) {
   wb <- createWorkbook()
   addWorksheet(wb, sheet)
   writeData(wb, sheet = sheet, x = df, startCol = 1, startRow = 1,
@@ -64,6 +64,15 @@ write_paper_table <- function(df, filepath, sheet = "Sheet1") {
     )
     addStyle(wb, sheet = sheet, style = body_style,
              rows = 2:(nrow(df) + 1), cols = 2:ncol(df), gridExpand = TRUE)
+  }
+
+  if (!is.null(footnote)) {
+    footnote_row <- nrow(df) + 3
+    writeData(wb, sheet = sheet, x = footnote, startCol = 1, startRow = footnote_row,
+              colNames = FALSE)
+    addStyle(wb, sheet = sheet,
+             style = createStyle(fontSize = 10, textDecoration = "italic", halign = "left"),
+             rows = footnote_row, cols = 1)
   }
 
   setColWidths(wb, sheet = sheet, cols = 1:ncol(df), widths = 15)
@@ -1659,7 +1668,11 @@ if (!"fies_rawscore" %in% names(toShow_base)) {
   toShow_base <- toShow_base %>% mutate(fies_rawscore = NA_real_)
 }
 
-toShow <- toShow_base %>%
+fmt_mean_sd <- function(m, s) {
+  ifelse(is.na(m), "n.a.", sprintf("%.1f (%.1f)", m, s))
+}
+
+toShow_stats <- toShow_base %>%
   mutate(area_overall_phase = as.character(area_overall_phase)) %>%
   group_by(area_overall_phase) %>%
   summarize(
@@ -1690,35 +1703,37 @@ toShow <- toShow_base %>%
         hhs_mean  = round(mean(hhs,          na.rm = TRUE), 1),
         hhs_sd    = round(sd(hhs,            na.rm = TRUE), 1)
       )
+  )
+
+toShow <- toShow_stats %>%
+  mutate(
+    FCS         = fmt_mean_sd(fcs_mean,  fcs_sd),
+    HDDS        = fmt_mean_sd(hdds_mean, hdds_sd),
+    rCSI        = fmt_mean_sd(rcsi_mean, rcsi_sd),
+    `FIES (raw score)*` = fmt_mean_sd(fies_mean, fies_sd),
+    HHS         = fmt_mean_sd(hhs_mean,  hhs_sd)
   ) %>%
+  select(area_overall_phase, FCS, HDDS, rCSI, `FIES (raw score)*`, HHS) %>%
   bind_rows(
     tibble(
       area_overall_phase = "Threshold",
-      fcs_mean = 35,  fcs_sd    = NA_real_,
-      hdds_mean = 3,  hdds_sd   = NA_real_,
-      rcsi_mean = 19, rcsi_sd   = NA_real_,
-      fies_mean = NA_real_, fies_sd = NA_real_,
-      hhs_mean  = 3,  hhs_sd    = NA_real_
+      FCS  = "35", HDDS = "3", rCSI = "19",
+      `FIES (raw score)*` = "n.a.", HHS = "3"
     )
   ) %>%
-  rename(
-    "IPC Phase" = area_overall_phase,
-    "FCS Mean"  = fcs_mean,  "FCS SD"  = fcs_sd,
-    "HDDS Mean" = hdds_mean, "HDDS SD" = hdds_sd,
-    "rCSI Mean" = rcsi_mean, "rCSI SD" = rcsi_sd,
-    "FIES Mean" = fies_mean, "FIES SD" = fies_sd,
-    "HHS Mean"  = hhs_mean,  "HHS SD"  = hhs_sd
-  )
+  rename("IPC Phase" = area_overall_phase)
 
 toShow %>%
   gt() %>%
-  tab_header(
-    title = "Table 6: Indicator means by IPC phase (household level, raw values)"
-  ) %>%
+  tab_header(title = "Table 6: Indicator means by IPC phase (household level, raw values)") %>%
   tab_options(table.font.size = px(12)) %>%
-  tab_footnote(footnote = "SD shown in parentheses. FIES available for 2023+ data only.")
+  tab_footnote(footnote = "Mean (SD). * FIES available for 2023+ data only.")
 
-write_paper_table(toShow, file.path(finalTablesFolder, "Table6_indicator_means_by_phase.xlsx"))
+write_paper_table(
+  toShow,
+  file.path(finalTablesFolder, "Table6_indicator_means_by_phase.xlsx"),
+  footnote = "Mean (SD). * FIES available for 2023+ data only."
+)
 
 
 
