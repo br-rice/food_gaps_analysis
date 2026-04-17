@@ -42,10 +42,12 @@ write_paper_table <- function(df, filepath, sheet = "Sheet1", footnote = NULL) {
   writeData(wb, sheet = sheet, x = df, startCol = 1, startRow = 1,
             colNames = TRUE, rowNames = FALSE)
 
+  df <- df %>% mutate(across(where(is.numeric), ~round(., 1)))
+
   header_style <- createStyle(
     textDecoration = "bold", halign = "center", valign = "center",
     wrapText = TRUE, fontName = "Times New Roman", fontSize = 9,
-    border = "TopBottomLeftRight", borderStyle = "thin"
+    border = "TopBottomLeftRight", borderStyle = "thin", fgFill = "#BDD7EE"
   )
   addStyle(wb, sheet = sheet, style = header_style,
            rows = 1, cols = 1:ncol(df), gridExpand = TRUE)
@@ -84,16 +86,18 @@ write_paper_table <- function(df, filepath, sheet = "Sheet1", footnote = NULL) {
 # Diagonal cells (value == 1) are left unshaded.
 write_correlation_table <- function(df, filepath, sheet = "Sheet1") {
   # Round numeric columns to 3 decimal places; diagonal (== 1) stays as 1
-  df <- df %>% mutate(across(where(is.numeric), ~round(., 3)))
+  df <- df %>% mutate(across(where(is.numeric), ~round(., 2)))
   wb <- createWorkbook()
   addWorksheet(wb, sheet)
   writeData(wb, sheet = sheet, x = df, startCol = 1, startRow = 1,
             colNames = TRUE, rowNames = FALSE)
 
+  df <- df %>% mutate(across(where(is.numeric), ~round(., 1)))
+
   header_style <- createStyle(
     textDecoration = "bold", halign = "center", valign = "center",
     wrapText = TRUE, fontName = "Times New Roman", fontSize = 9,
-    border = "TopBottomLeftRight", borderStyle = "thin"
+    border = "TopBottomLeftRight", borderStyle = "thin", fgFill = "#BDD7EE"
   )
   addStyle(wb, sheet = sheet, style = header_style,
            rows = 1, cols = 1:ncol(df), gridExpand = TRUE)
@@ -3451,7 +3455,7 @@ local({
 
   header_style <- createStyle(textDecoration = "bold", halign = "center", valign = "center",
                               wrapText = TRUE, fontName = "Times New Roman", fontSize = 9,
-                              border = "TopBottomLeftRight", borderStyle = "thin")
+                              border = "TopBottomLeftRight", borderStyle = "thin", fgFill = "#BDD7EE")
   left_style   <- createStyle(halign = "left",   valign = "center",
                               fontName = "Times New Roman", fontSize = 9,
                               border = "TopBottomLeftRight", borderStyle = "thin")
@@ -3618,10 +3622,11 @@ local({
             startRow = 2, startCol = 1, colNames = FALSE)
 
   # Data
+  df <- df %>% mutate(across(where(is.numeric), ~round(., 1)))
   writeData(wb, sh, x = df, startRow = 3, startCol = 1, colNames = FALSE)
 
   header_style <- createStyle(textDecoration = "bold", halign = "center", valign = "center",
-                              fontName = "Times New Roman", fontSize = 9, border = "TopBottomLeftRight", borderStyle = "thin")
+                              fontName = "Times New Roman", fontSize = 9, border = "TopBottomLeftRight", borderStyle = "thin", fgFill = "#BDD7EE")
   body_style   <- createStyle(halign = "center", valign = "center", fontName = "Times New Roman", fontSize = 9,
                               border = "TopBottomLeftRight", borderStyle = "thin")
   left_style   <- createStyle(halign = "left",   valign = "center", fontName = "Times New Roman", fontSize = 9,
@@ -3639,13 +3644,75 @@ local({
 # AppendixA3.2: All-indicator FGT by country × phase (phases 3 and 4), separate columns
 AppendixA3_2 <- indicatorGapsByPhase %>%
   select(adm0_name,
-    FCS_FGT0_phase3, FCS_FGT1_phase3, FCS_FGT0_phase4, FCS_FGT1_phase4,
-    rcsi_FGT0_phase3, rcsi_FGT1_phase3, rcsi_FGT0_phase4, rcsi_FGT1_phase4,
+    FCS_FGT0_phase3,  FCS_FGT1_phase3,  FCS_FGT0_phase4,  FCS_FGT1_phase4,
     hdds_FGT0_phase3, hdds_FGT1_phase3, hdds_FGT0_phase4, hdds_FGT1_phase4,
-    hhs_FGT0_phase3, hhs_FGT1_phase3, hhs_FGT0_phase4, hhs_FGT1_phase4
+    rcsi_FGT0_phase3, rcsi_FGT1_phase3, rcsi_FGT0_phase4, rcsi_FGT1_phase4,
+    hhs_FGT0_phase3,  hhs_FGT1_phase3,  hhs_FGT0_phase4,  hhs_FGT1_phase4
   )
 
-write_paper_table(AppendixA3_2, file.path(finalTablesFolder, "TableA4_FGT_by_country_phase.xlsx"))
+local({
+  df <- AppendixA3_2 %>%
+    rename(Country = adm0_name) %>%
+    mutate(across(where(is.numeric), ~round(., 1)))
+
+  wb <- createWorkbook()
+  sh <- "Sheet1"
+  addWorksheet(wb, sh)
+
+  # Row 1: top-level indicator groups (FCS cols 2-5, HDDS 6-9, rCSI 10-13, HHS 14-17)
+  writeData(wb, sh, startRow = 1, startCol = 1, colNames = FALSE, x = data.frame(
+    A="Country", B="FCS", C="", D="", E="",
+    F="HDDS",    G="", H="", I="",
+    J="rCSI",    K="", L="", M="",
+    N="HHS",     O="", P="", Q=""
+  ))
+  mergeCells(wb, sh, rows = 1, cols = 2:5)
+  mergeCells(wb, sh, rows = 1, cols = 6:9)
+  mergeCells(wb, sh, rows = 1, cols = 10:13)
+  mergeCells(wb, sh, rows = 1, cols = 14:17)
+
+  # Row 2: phase groups within each indicator
+  writeData(wb, sh, startRow = 2, startCol = 1, colNames = FALSE, x = data.frame(
+    A="Country",
+    B="FCS gap IPC 3",  C="",  D="FCS gap IPC 4",  E="",
+    F="HDDS gap IPC 3", G="",  H="HDDS gap IPC 4",  I="",
+    J="rCSI gap IPC 3", K="",  L="rCSI gap IPC 4",  M="",
+    N="HHS gap IPC 3",  O="",  P="HHS gap IPC 4",   Q=""
+  ))
+  for (start_col in c(2, 4, 6, 8, 10, 12, 14, 16)) {
+    mergeCells(wb, sh, rows = 2, cols = start_col:(start_col + 1))
+  }
+
+  # Row 3: FGT0 / FGT1 sub-headers
+  writeData(wb, sh, startRow = 3, startCol = 1, colNames = FALSE, x = data.frame(
+    A="Country",
+    B="FGT0", C="FGT1", D="FGT0", E="FGT1",
+    F="FGT0", G="FGT1", H="FGT0", I="FGT1",
+    J="FGT0", K="FGT1", L="FGT0", M="FGT1",
+    N="FGT0", O="FGT1", P="FGT0", Q="FGT1"
+  ))
+
+  # Data
+  writeData(wb, sh, x = df, startRow = 4, startCol = 1, colNames = FALSE)
+
+  header_style <- createStyle(textDecoration = "bold", halign = "center", valign = "center",
+                              wrapText = TRUE, fontName = "Times New Roman", fontSize = 9,
+                              border = "TopBottomLeftRight", borderStyle = "thin", fgFill = "#BDD7EE")
+  left_style   <- createStyle(halign = "left",   valign = "center",
+                              fontName = "Times New Roman", fontSize = 9,
+                              border = "TopBottomLeftRight", borderStyle = "thin")
+  body_style   <- createStyle(halign = "center", valign = "center",
+                              fontName = "Times New Roman", fontSize = 9,
+                              border = "TopBottomLeftRight", borderStyle = "thin")
+
+  addStyle(wb, sh, header_style, rows = 1:3,              cols = 1:17, gridExpand = TRUE)
+  addStyle(wb, sh, left_style,   rows = 4:(nrow(df) + 3), cols = 1,    gridExpand = TRUE)
+  addStyle(wb, sh, body_style,   rows = 4:(nrow(df) + 3), cols = 2:17, gridExpand = TRUE)
+
+  setColWidths(wb, sh, cols = 1,     widths = 20)
+  setColWidths(wb, sh, cols = 2:17,  widths = 8)
+  saveWorkbook(wb, file.path(finalTablesFolder, "TableA4_FGT_by_country_phase.xlsx"), overwrite = TRUE)
+})
 
 
 
