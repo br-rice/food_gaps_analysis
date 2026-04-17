@@ -363,7 +363,7 @@ multi_phase_summary <- IPCDIEM_hh %>%
   )
 
 write_paper_table(multi_phase_summary,
-  file.path(finalTablesFolder, "Table_multi_phase_matches.xlsx"))
+  file.path(finalTablesFolder, "Table_other_1_multi_phase_matches.xlsx"))
 
 # ---- hhDataCompleteness ----
 # Share of matched households with no missing in ANY of FCS, HDDS, HHS, RCSI
@@ -392,7 +392,7 @@ completeness_tbl <- bind_rows(completeness_by_country, completeness_overall) %>%
     "HH with complete data, all 4 indicators (%)" = pct_complete
   )
 
-write_paper_table(completeness_tbl, file.path(finalTablesFolder, "Table_HH_data_completeness.xlsx"))
+write_paper_table(completeness_tbl, file.path(finalTablesFolder, "TableA6_HH_data_completeness.xlsx"))
 
 # by time (appendix)
 del <- describingIPC_DIEM %>%
@@ -405,7 +405,7 @@ del <- describingIPC_DIEM %>%
          IPC4 = `4`) %>%
   relocate(IPC1, .before = IPC2)
 
-write_paper_table(del, file.path(finalTablesFolder, "AppendixA1_time_coverage.xlsx"))
+write_paper_table(del, file.path(finalTablesFolder, "TableA1_time_coverage.xlsx"))
 
 
 
@@ -2021,7 +2021,7 @@ for (adm in admin_list) {
 }
 
 saveWorkbook(wb_country_corr,
-             file.path(finalTablesFolder, "AppendixA_correlations_by_country.xlsx"),
+             file.path(finalTablesFolder, "Table_other_2_correlations_by_country.xlsx"),
              overwrite = TRUE)
 
 
@@ -3680,7 +3680,7 @@ write_paper_table(countries_fgtgaps,
 
 # AppendixA3.1: all-indicator FGT by country (collapsed across phases)
 write_paper_table(countries_fgtgaps,
-           file.path(finalTablesFolder, "AppendixA3_FGT_by_country.xlsx"))
+           file.path(finalTablesFolder, "TableA3_FGT_by_country.xlsx"))
 
 
 
@@ -4042,7 +4042,7 @@ dataForExcel <- tableWithRanges %>%
     "No. people" = population_inPhase
   )
 
-write_paper_table(dataForExcel, file.path(finalTablesFolder, "AppendixA2_deficits_by_country_phase.xlsx"))
+write_paper_table(dataForExcel, file.path(finalTablesFolder, "TableA2_deficits_by_country_phase.xlsx"))
 
 
 #=====================================================================================================
