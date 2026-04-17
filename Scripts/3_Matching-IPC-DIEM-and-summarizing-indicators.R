@@ -3730,14 +3730,66 @@ countries_fgtgaps <- IPCDIEM_hh %>%
   left_join(hhs_gap)
 
 
-# export to excel
+# export to excel — nested headers (FCS / HDDS / rCSI / HHS × FGT0/FGT1)
+local({
+  df <- countries_fgtgaps %>%
+    select(adm0_name,
+           FCS_FGT0,  FCS_FGT1,
+           hdds_FGT0, hdds_FGT1,
+           RCSI_FGT0, RCSI_FGT1,
+           hhs_FGT0,  hhs_FGT1) %>%
+    rename(Country = adm0_name) %>%
+    mutate(across(where(is.numeric), ~round(.x, 2)))
 
-write_paper_table(countries_fgtgaps,
-           file.path(outputVizInOutputFolder, "table_fgtIndicatorGaps_by country.xlsx"))
+  wb <- createWorkbook()
+  sh <- "Sheet1"
+  addWorksheet(wb, sh)
 
-# AppendixA3.1: all-indicator FGT by country (collapsed across phases)
-write_paper_table(countries_fgtgaps,
-           file.path(finalTablesFolder, "TableA3_FGT_by_country.xlsx"))
+  # Row 1: top-level indicator groups
+  writeData(wb, sh, startRow = 1, startCol = 1, colNames = FALSE, x = data.frame(
+    A = "Country",
+    B = "FCS",  C = "",
+    D = "HDDS", E = "",
+    F = "rCSI", G = "",
+    H = "HHS",  I = ""
+  ))
+  mergeCells(wb, sh, rows = 1, cols = 2:3)
+  mergeCells(wb, sh, rows = 1, cols = 4:5)
+  mergeCells(wb, sh, rows = 1, cols = 6:7)
+  mergeCells(wb, sh, rows = 1, cols = 8:9)
+
+  # Row 2: sub-headers
+  writeData(wb, sh, startRow = 2, startCol = 1, colNames = FALSE, x = data.frame(
+    A = "Country",
+    B = "FGT0", C = "FGT1",
+    D = "FGT0", E = "FGT1",
+    F = "FGT0", G = "FGT1",
+    H = "FGT0", I = "FGT1"
+  ))
+
+  # Data
+  writeData(wb, sh, x = df, startRow = 3, startCol = 1, colNames = FALSE)
+
+  header_style <- createStyle(textDecoration = "bold", halign = "center", valign = "center",
+                              wrapText = TRUE, fontName = "Times New Roman", fontSize = 9,
+                              border = "TopBottomLeftRight", borderStyle = "thin", fgFill = "#BDD7EE")
+  left_style   <- createStyle(halign = "left",   valign = "center",
+                              fontName = "Times New Roman", fontSize = 9,
+                              border = "TopBottomLeftRight", borderStyle = "thin")
+  body_style   <- createStyle(halign = "center", valign = "center",
+                              fontName = "Times New Roman", fontSize = 9,
+                              border = "TopBottomLeftRight", borderStyle = "thin")
+
+  addStyle(wb, sh, header_style, rows = 1:2,              cols = 1:9, gridExpand = TRUE)
+  addStyle(wb, sh, left_style,   rows = 3:(nrow(df) + 2), cols = 1,   gridExpand = TRUE)
+  addStyle(wb, sh, body_style,   rows = 3:(nrow(df) + 2), cols = 2:9, gridExpand = TRUE)
+
+  setColWidths(wb, sh, cols = 1,    widths = 20)
+  setColWidths(wb, sh, cols = 2:9,  widths = 10)
+
+  saveWorkbook(wb, file.path(outputVizInOutputFolder, "table_fgtIndicatorGaps_by country.xlsx"), overwrite = TRUE)
+  saveWorkbook(wb, file.path(finalTablesFolder, "TableA3_FGT_by_country.xlsx"),                 overwrite = TRUE)
+})
 
 
 
