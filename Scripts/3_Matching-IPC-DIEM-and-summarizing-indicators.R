@@ -178,6 +178,54 @@ DIEM_FoodSecurity_HHPost2022 <- readRDS(file.path(dataFolder, "DIEM_hhpost2022An
 IPCDIEM_hh_imported <- readRDS(file.path(dataFolder, "IPC_DIEM_hh_joinedAndClean.rds"))
 IPCDIEM_hh <- IPCDIEM_hh_imported
 
+# ---- dedup_diagnostics ----
+# Diagnostics: before vs after deduplication to closest IPC match per (household, survey round)
+
+cat("=== BEFORE deduplication ===\n")
+cat("Total rows (household × IPC match pairs):", nrow(IPCDIEM_hh), "\n")
+cat("Unique households (OBJECTID):", n_distinct(IPCDIEM_hh$OBJECTID), "\n")
+cat("Unique household-rounds (OBJECTID × survey_date):", n_distinct(paste(IPCDIEM_hh$OBJECTID, IPCDIEM_hh$survey_date)), "\n")
+
+before_by_country <- IPCDIEM_hh %>%
+  group_by(adm0_name) %>%
+  summarise(
+    rows            = n(),
+    unique_hh       = n_distinct(OBJECTID),
+    unique_hh_round = n_distinct(paste(OBJECTID, survey_date)),
+    .groups = "drop"
+  )
+print(before_by_country)
+
+# How many household-rounds have more than one IPC match?
+multi_match <- IPCDIEM_hh %>%
+  group_by(OBJECTID, survey_date) %>%
+  summarise(n_ipc_matches = n(), .groups = "drop")
+cat("\nHousehold-rounds with >1 IPC match:", sum(multi_match$n_ipc_matches > 1), "\n")
+cat("Household-rounds with exactly 1 IPC match:", sum(multi_match$n_ipc_matches == 1), "\n")
+
+# Deduplicate: per (household, survey round) keep closest IPC analysis in time
+IPCDIEM_hh <- IPCDIEM_hh %>%
+  group_by(OBJECTID, survey_date) %>%
+  slice_min(abs(as.numeric(survey_date - country_analysis_date)), n = 1, with_ties = FALSE) %>%
+  ungroup()
+
+cat("\n=== AFTER deduplication ===\n")
+cat("Total rows:", nrow(IPCDIEM_hh), "\n")
+cat("Unique households (OBJECTID):", n_distinct(IPCDIEM_hh$OBJECTID), "\n")
+cat("Unique household-rounds:", n_distinct(paste(IPCDIEM_hh$OBJECTID, IPCDIEM_hh$survey_date)), "\n")
+
+after_by_country <- IPCDIEM_hh %>%
+  group_by(adm0_name) %>%
+  summarise(
+    rows            = n(),
+    unique_hh       = n_distinct(OBJECTID),
+    unique_hh_round = n_distinct(paste(OBJECTID, survey_date)),
+    .groups = "drop"
+  )
+print(after_by_country)
+
+cat("\nRows removed by deduplication:", nrow(IPCDIEM_hh_imported) - nrow(IPCDIEM_hh), "\n")
+
 
 
 # ## Import DIEM aggregated, IPC, and DIEM hh pre 2023
@@ -1699,8 +1747,7 @@ IPCDIEM_hh %>%
 toShow_base <- IPCDIEM_hh %>%
   select(OBJECTID, area_overall_phase, fcs, hdds_score, rcsi_score,
          any_of("fies_rawscore"), hhs) %>%
-  ungroup() %>%
-  group_by(OBJECTID) %>% slice(1) %>% ungroup()
+  ungroup()
 
 # Add FIES column of NAs if not present in dataset
 if (!"fies_rawscore" %in% names(toShow_base)) {
@@ -2503,7 +2550,6 @@ vars_compare <- c("fcs", "hdds_score", "hhs", "rcsi_score")
 summarize_for_comparison <- function(df, group_label) {
   df %>%
     select(OBJECTID, adm0_name, all_of(vars_compare)) %>%
-    group_by(OBJECTID) %>% slice(1) %>% ungroup() %>%
     group_by(adm0_name) %>%
     summarise(across(all_of(vars_compare),
       list(
@@ -2528,7 +2574,6 @@ matched_summary <- matched_summary %>% filter(adm0_name %in% countries_in_both)
 summarize_overall <- function(df, group_label) {
   df %>%
     select(OBJECTID, all_of(vars_compare)) %>%
-    group_by(OBJECTID) %>% slice(1) %>% ungroup() %>%
     summarise(across(all_of(vars_compare),
       list(
         mean = ~round(mean(.x, na.rm = TRUE), 1),
