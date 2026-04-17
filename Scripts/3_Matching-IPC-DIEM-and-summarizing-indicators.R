@@ -282,6 +282,41 @@ del_hh <- IPCDIEM_hh %>%
 
 write_paper_table(del_hh, file.path(finalTablesFolder, "Table1b_matched_households_by_country_and_phase.xlsx"))
 
+# ---- multiplePhaseMatches ----
+# Households matched to 2+ different IPC phases (across different IPC analyses)
+multi_phase <- IPCDIEM_hh %>%
+  group_by(OBJECTID) %>%
+  summarise(n_phases = n_distinct(area_overall_phase), .groups = "drop")
+
+multi_phase_summary <- IPCDIEM_hh %>%
+  select(OBJECTID, adm0_name) %>%
+  distinct() %>%
+  left_join(multi_phase, by = "OBJECTID") %>%
+  group_by(adm0_name) %>%
+  summarise(
+    n_hh_total        = n(),
+    n_hh_multi_phase  = sum(n_phases > 1),
+    pct_multi_phase   = round(100 * mean(n_phases > 1), 1),
+    .groups = "drop"
+  ) %>%
+  bind_rows(
+    summarise(.,
+      adm0_name        = "Overall",
+      n_hh_total       = sum(n_hh_total),
+      n_hh_multi_phase = sum(n_hh_multi_phase),
+      pct_multi_phase  = round(100 * sum(n_hh_multi_phase) / sum(n_hh_total), 1)
+    )
+  ) %>%
+  rename(
+    Country                           = adm0_name,
+    "Total matched HH"                = n_hh_total,
+    "HH matched to 2+ IPC phases (n)" = n_hh_multi_phase,
+    "HH matched to 2+ IPC phases (%)" = pct_multi_phase
+  )
+
+write_paper_table(multi_phase_summary,
+  file.path(finalTablesFolder, "Table_multi_phase_matches.xlsx"))
+
 # ---- hhDataCompleteness ----
 # Share of matched households with no missing in ANY of FCS, HDDS, HHS, RCSI
 completeness_by_country <- IPCDIEM_hh %>%
