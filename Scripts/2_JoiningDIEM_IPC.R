@@ -35,8 +35,8 @@ DIEM_FoodSecurityImported<- read_csv(file.path(dataFolder, "DIEM_household_surve
 del <- DIEM_FoodSecurityImported %>% 
   select(contains("hhs")) %>%  colnames() %>% as.data.frame() 
 
-DIEM_IncomeImported<- read_csv(file.path(dataFolder, "DIEM_household_surveys_aggregated_data_(income_shocks_and_needs_thematic_areas)_-8295228611698009492.csv")) %>%
-  rename(iso3 = adm0_iso3)
+# DIEM_IncomeImported<- read_csv(file.path(dataFolder, "DIEM_household_surveys_aggregated_data_(income_shocks_and_needs_thematic_areas)_-8295228611698009492.csv")) %>%
+#   rename(iso3 = adm0_iso3)
 
 IPCdataImported <- readRDS(file.path(dataFolder, "IPCdata_imported.rds")) %>%
   select(country_ISO2Code:country_current_period_dates, area_name, area_overall_phase) %>%
@@ -112,6 +112,15 @@ del <- read_csv(file.path(dataFolder, "DIEM Household surveys microdata_20251003
   select(contains("hhs")) %>%  colnames() %>% as.data.frame() 
 
 DIEM_FoodSecurity_HH_Imported<- read_csv(file.path(dataFolder, "DIEM Household surveys microdata_20251003155124.csv")) 
+# check distinct households
+DIEM_FoodSecurity_HH_Imported %>%
+  group_by(adm0_name) %>%
+  summarise(
+    n_by_objectid  = n_distinct(OBJECTID),
+    n_by_surveyid  = n_distinct(survey_id)
+  ) %>% print(n = 100)
+
+
 DIEM_FoodSecurity_HH <- DIEM_FoodSecurity_HH_Imported %>%
   select(2:14, 
          fies_rawscore,
