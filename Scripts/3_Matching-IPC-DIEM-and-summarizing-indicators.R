@@ -735,6 +735,90 @@ del <- IPC_DIEM %>%
   arrange(iso3, DIEM_startDate)
 
 
+# ---- TableA7_temporal_severity ----
+# Table A7: IPC Phase 3+ share and indicator means by country and year
+# Shows how the severity profile of the matched sample varies across years,
+# to confirm the selected time periods are representative of the study period.
+
+# For country-years with multiple IPC analyses, keep only the one with the
+# highest total population (summed across districts within each analysis).
+selected_analyses <- IPC_DIEM %>%
+  mutate(year = year(IPC_analysis_date)) %>%
+  group_by(iso3, year, IPC_analysis_date) %>%
+  summarise(
+    analysis_total_pop = sum(
+      area_phase1_population + area_phase2_population + area_phase3_population +
+      area_phase4_population + area_phase5_population,
+      na.rm = TRUE
+    ),
+    .groups = "drop"
+  ) %>%
+  group_by(iso3, year) %>%
+  slice_max(analysis_total_pop, n = 1, with_ties = FALSE) %>%
+  ungroup() %>%
+  select(iso3, year, IPC_analysis_date)
+
+# Phase 3+%: population-weighted across matched districts, selected analysis only
+phase3plus_by_country_year <- IPC_DIEM %>%
+  mutate(
+    year           = year(IPC_analysis_date),
+    total_pop      = area_phase1_population + area_phase2_population +
+                     area_phase3_population + area_phase4_population + area_phase5_population,
+    phase3plus_pop = area_phase3_population + area_phase4_population + area_phase5_population
+  ) %>%
+  inner_join(selected_analyses, by = c("iso3", "year", "IPC_analysis_date")) %>%
+  group_by(iso3, year) %>%
+  summarise(
+    n_districts    = n(),
+    pct_phase3plus = 100 * sum(phase3plus_pop, na.rm = TRUE) / sum(total_pop, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Indicator means: household level from IPCDIEM_hh, selected analysis only
+indicators_by_country_year <- IPCDIEM_hh %>%
+  mutate(year = year(country_analysis_date)) %>%
+  inner_join(selected_analyses,
+             by = c("iso3", "year", "country_analysis_date" = "IPC_analysis_date")) %>%
+  group_by(iso3, year) %>%
+  summarise(
+    fcs_mean  = round(mean(fcs,        na.rm = TRUE), 1),
+    hdds_mean = round(mean(hdds_score, na.rm = TRUE), 1),
+    rcsi_mean = round(mean(rcsi_score, na.rm = TRUE), 1),
+    hhs_mean  = round(mean(hhs,        na.rm = TRUE), 1),
+    .groups = "drop"
+  )
+
+# Join and label most recent year per country
+tableA7 <- phase3plus_by_country_year %>%
+  full_join(indicators_by_country_year, by = c("iso3", "year")) %>%
+  mutate(country = countrycode(iso3, "iso3c", "country.name")) %>%
+  arrange(country, year) %>%
+  group_by(iso3) %>%
+  mutate(most_recent = if_else(year == max(year), "*", "")) %>%
+  ungroup() %>%
+  mutate(pct_phase3plus = round(pct_phase3plus, 1)) %>%
+  select(
+    Country                          = country,
+    Year                             = year,
+    `Matched districts`              = n_districts,
+    `Phase 3+% (pop. weighted)`      = pct_phase3plus,
+    `FCS mean`                       = fcs_mean,
+    `HDDS mean`                      = hdds_mean,
+    `rCSI mean`                      = rcsi_mean,
+    `HHS mean`                       = hhs_mean,
+    `Most recent`                    = most_recent
+  )
+
+tableA7 %>%
+  gt() %>%
+  tab_header(title = "Table A7: IPC Phase 3+ share and indicator means by country and year (matched sample)") %>%
+  tab_footnote(footnote = "Phase 3+% is population-weighted across matched districts. Indicator means are household-level means from matched DIEM data. * = most recent IPC analysis year for that country.")
+
+write_paper_table(
+  tableA7,
+  file.path(finalTablesFolder, "TableA7_temporal_severity_by_country_year.xlsx"),
+  footnote = "Phase 3+% is population-weighted across matched districts. Indicator means are household-level means from matched DIEM data. * = most recent IPC analysis year for that country."
+)
 
 
 # <br>
