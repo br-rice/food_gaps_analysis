@@ -368,28 +368,37 @@ write_paper_table(multi_phase_summary,
 # ---- hhDataCompleteness ----
 # Share of matched households with no missing in ANY of FCS, HDDS, HHS, RCSI
 completeness_by_country <- IPCDIEM_hh %>%
-  mutate(all_complete = !is.na(fcs) & !is.na(hdds_score) & !is.na(hhs) & !is.na(rcsi_score)) %>%
+  mutate(
+    all_complete      = !is.na(fcs) & !is.na(hdds_score) & !is.na(hhs) & !is.na(rcsi_score),
+    all_complete_fies = !is.na(fcs) & !is.na(hdds_score) & !is.na(hhs) & !is.na(rcsi_score) & !is.na(fies_rawscore)
+  ) %>%
   group_by(adm0_name) %>%
   summarise(
-    N_households = n(),
-    pct_complete = round(100 * mean(all_complete), 1),
+    N_households      = n(),
+    pct_complete      = round(100 * mean(all_complete), 1),
+    pct_complete_fies = round(100 * mean(all_complete_fies), 1),
     .groups = "drop"
   ) %>%
   arrange(adm0_name)
 
 completeness_overall <- IPCDIEM_hh %>%
-  mutate(all_complete = !is.na(fcs) & !is.na(hdds_score) & !is.na(hhs) & !is.na(rcsi_score)) %>%
+  mutate(
+    all_complete      = !is.na(fcs) & !is.na(hdds_score) & !is.na(hhs) & !is.na(rcsi_score),
+    all_complete_fies = !is.na(fcs) & !is.na(hdds_score) & !is.na(hhs) & !is.na(rcsi_score) & !is.na(fies_rawscore)
+  ) %>%
   summarise(
-    adm0_name    = "Overall",
-    N_households = n(),
-    pct_complete = round(100 * mean(all_complete), 1)
+    adm0_name         = "Overall",
+    N_households      = n(),
+    pct_complete      = round(100 * mean(all_complete), 1),
+    pct_complete_fies = round(100 * mean(all_complete_fies), 1)
   )
 
 completeness_tbl <- bind_rows(completeness_by_country, completeness_overall) %>%
   rename(
-    Country                             = adm0_name,
-    "N matched HH"                      = N_households,
-    "HH with complete data, all 4 indicators (%)" = pct_complete
+    Country                                        = adm0_name,
+    "N matched HH"                                 = N_households,
+    "HH with complete data, all 4 indicators (%)"  = pct_complete,
+    "HH with complete data, all 5 indicators incl. FIES (%)" = pct_complete_fies
   )
 
 write_paper_table(completeness_tbl, file.path(finalTablesFolder, "TableA6_HH_data_completeness.xlsx"))
