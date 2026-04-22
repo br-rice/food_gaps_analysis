@@ -2864,7 +2864,7 @@ p1 <- ggplot(summary_gap, aes(x = factor(area_overall_phase), y = pct_below, fil
   ) +
   labs(
     x = "", y = "% below threshold",
-    title = "Share of population below threshold"
+    title = ""
   ) +
   theme_minimal() +
   theme(legend.position = "none")
@@ -2996,7 +2996,7 @@ p1 <- ggplot(summary_gap, aes(x = factor(area_overall_phase), y = pct_below, fil
   ) +
   labs(
     x = "", y = "% below threshold",
-    title = "Share of population below threshold"
+    title = ""
   ) +
   theme_minimal() +
   theme(legend.position = "none")
@@ -3174,7 +3174,7 @@ p1 <- ggplot(summary_gap, aes(x = factor(area_overall_phase), y = pct_below, fil
   ) +
   labs(
     x = "", y = "% below threshold",
-    title = "Share of population below threshold"
+    title = ""
   ) +
   theme_minimal() +
   theme(legend.position = "none")
@@ -3348,7 +3348,7 @@ p1 <- ggplot(summary_gap, aes(x = factor(area_overall_phase), y = pct_below, fil
   ) +
   labs(
     x = "", y = "% below threshold",
-    title = "Share of population below threshold"
+    title = ""
   ) +
   theme_minimal() +
   theme(legend.position = "none")
