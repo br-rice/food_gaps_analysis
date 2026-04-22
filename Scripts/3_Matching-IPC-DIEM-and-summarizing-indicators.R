@@ -740,13 +740,12 @@ del <- IPC_DIEM %>%
 # Shows how the severity profile of the matched sample varies across years,
 # to confirm the selected time periods are representative of the study period.
 
-# For country-years with multiple IPC analyses, keep only the one with the
-# highest total population (summed across districts within each analysis).
+# Step 1: one row per country-year; keep the IPC analysis with highest total population.
 selected_analyses <- IPC_DIEM %>%
   mutate(year = year(IPC_analysis_date)) %>%
   group_by(iso3, year, IPC_analysis_date) %>%
   summarise(
-    analysis_total_pop = sum(
+    total_pop = sum(
       area_phase1_population + area_phase2_population + area_phase3_population +
       area_phase4_population + area_phase5_population,
       na.rm = TRUE
@@ -754,31 +753,30 @@ selected_analyses <- IPC_DIEM %>%
     .groups = "drop"
   ) %>%
   group_by(iso3, year) %>%
-  slice_max(analysis_total_pop, n = 1, with_ties = FALSE) %>%
-  ungroup() %>%
-  select(iso3, year, IPC_analysis_date)
+  slice_max(total_pop, n = 1, with_ties = FALSE) %>%
+  ungroup()
 
-# Phase 3+%: population-weighted across matched districts, selected analysis only
-phase3plus_by_country_year <- IPC_DIEM %>%
-  mutate(
-    year           = year(IPC_analysis_date),
-    total_pop      = area_phase1_population + area_phase2_population +
-                     area_phase3_population + area_phase4_population + area_phase5_population,
-    phase3plus_pop = area_phase3_population + area_phase4_population + area_phase5_population
-  ) %>%
-  inner_join(selected_analyses, by = c("iso3", "year", "IPC_analysis_date")) %>%
+# Step 2: filter IPC_DIEM to selected analyses, compute Phase 3+% by country-year.
+ipc_summary <- IPC_DIEM %>%
+  mutate(year = year(IPC_analysis_date)) %>%
+  semi_join(selected_analyses, by = c("iso3", "IPC_analysis_date")) %>%
   group_by(iso3, year) %>%
   summarise(
     n_districts    = n(),
-    pct_phase3plus = 100 * sum(phase3plus_pop, na.rm = TRUE) / sum(total_pop, na.rm = TRUE),
+    pct_phase3plus = round(
+      100 * sum(area_phase3_population + area_phase4_population + area_phase5_population, na.rm = TRUE) /
+            sum(area_phase1_population + area_phase2_population + area_phase3_population +
+                area_phase4_population + area_phase5_population, na.rm = TRUE),
+      1),
     .groups = "drop"
   )
 
-# Indicator means: household level from IPCDIEM_hh, selected analysis only
-indicators_by_country_year <- IPCDIEM_hh %>%
+# Step 3: filter IPCDIEM_hh to selected analyses, deduplicate, compute indicator means.
+hh_summary <- IPCDIEM_hh %>%
+  select(iso3, country_analysis_date, OBJECTID, survey_date, fcs, hdds_score, rcsi_score, hhs) %>%
+  semi_join(selected_analyses, by = c("iso3", "country_analysis_date" = "IPC_analysis_date")) %>%
+  distinct(iso3, OBJECTID, survey_date, .keep_all = TRUE) %>%
   mutate(year = year(country_analysis_date)) %>%
-  inner_join(selected_analyses,
-             by = c("iso3", "year", "country_analysis_date" = "IPC_analysis_date")) %>%
   group_by(iso3, year) %>%
   summarise(
     fcs_mean  = round(mean(fcs,        na.rm = TRUE), 1),
@@ -788,9 +786,9 @@ indicators_by_country_year <- IPCDIEM_hh %>%
     .groups = "drop"
   )
 
-# Join and label most recent year per country
-tableA7 <- phase3plus_by_country_year %>%
-  full_join(indicators_by_country_year, by = c("iso3", "year")) %>%
+# Step 4: join the two summaries and format.
+tableA7 <- ipc_summary %>%
+  left_join(hh_summary, by = c("iso3", "year")) %>%
   mutate(country = countrycode(iso3, "iso3c", "country.name")) %>%
   arrange(country, year) %>%
   group_by(iso3) %>%
