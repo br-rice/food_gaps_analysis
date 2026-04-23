@@ -740,83 +740,169 @@ del <- IPC_DIEM %>%
 # Shows how the severity profile of the matched sample varies across years,
 # to confirm the selected time periods are representative of the study period.
 
-# Step 1: one row per country-year; keep the IPC analysis with highest total population.
-selected_analyses <- IPC_DIEM %>%
-  mutate(year = year(IPC_analysis_date)) %>%
-  group_by(iso3, year, IPC_analysis_date) %>%
-  summarise(
-    total_pop = sum(
-      area_phase1_population + area_phase2_population + area_phase3_population +
-      area_phase4_population + area_phase5_population,
-      na.rm = TRUE
-    ),
-    .groups = "drop"
-  ) %>%
-  group_by(iso3, year) %>%
-  slice_max(total_pop, n = 1, with_ties = FALSE) %>%
-  ungroup()
+# # Step 1: one row per country-year; keep the IPC analysis with highest total population.
+# selected_analyses <- IPC_DIEM %>%
+#   mutate(year = year(IPC_analysis_date)) %>%
+#   group_by(iso3, year, IPC_analysis_date) %>%
+#   summarise(
+#     total_pop = sum(
+#       area_phase1_population + area_phase2_population + area_phase3_population +
+#       area_phase4_population + area_phase5_population,
+#       na.rm = TRUE
+#     ),
+#     .groups = "drop"
+#   ) %>%
+#   group_by(iso3, year) %>%
+#   slice_max(total_pop, n = 1, with_ties = FALSE) %>%
+#   ungroup()
+# 
+# # Step 2: filter IPC_DIEM to selected analyses, compute Phase 3+% by country-year.
+# ipc_summary <- IPC_DIEM %>%
+#   mutate(year = year(IPC_analysis_date)) %>%
+#   semi_join(selected_analyses, by = c("iso3", "IPC_analysis_date")) %>%
+#   group_by(iso3, year) %>%
+#   summarise(
+#     n_districts    = n(),
+#     pct_phase3plus = round(
+#       100 * sum(area_phase3_population + area_phase4_population + area_phase5_population, na.rm = TRUE) /
+#             sum(area_phase1_population + area_phase2_population + area_phase3_population +
+#                 area_phase4_population + area_phase5_population, na.rm = TRUE),
+#       1),
+#     .groups = "drop"
+#   )
+# 
+# # Step 3: filter IPCDIEM_hh to selected analyses, deduplicate, compute indicator means.
+# hh_summary <- IPCDIEM_hh %>%
+#   select(iso3, country_analysis_date, OBJECTID, survey_date, fcs, hdds_score, rcsi_score, hhs) %>%
+#   semi_join(selected_analyses, by = c("iso3", "country_analysis_date" = "IPC_analysis_date")) %>%
+#   distinct(iso3, OBJECTID, survey_date, .keep_all = TRUE) %>%
+#   mutate(year = year(country_analysis_date)) %>%
+#   group_by(iso3, year) %>%
+#   summarise(
+#     fcs_mean  = round(mean(fcs,        na.rm = TRUE), 1),
+#     hdds_mean = round(mean(hdds_score, na.rm = TRUE), 1),
+#     rcsi_mean = round(mean(rcsi_score, na.rm = TRUE), 1),
+#     hhs_mean  = round(mean(hhs,        na.rm = TRUE), 1),
+#     .groups = "drop"
+#   )
+# 
+# 
+# # ---- Step 4: Final Table A7 Construction ----
+# 
+# # 1. Filter to requested indicators and ensure chronological order
+# tableA7_long <- ipc_summary %>%
+#   left_join(hh_summary, by = c("iso3", "year")) %>%
+#   mutate(Country = countrycode(iso3, "iso3c", "country.name")) %>%
+#   # Filter to strictly the 5 indicators requested
+#   select(
+#     Country, 
+#     year,
+#     `Phase 3+%` = pct_phase3plus,
+#     `FCS`        = fcs_mean,
+#     `HDDS`       = hdds_mean,
+#     `rCSI`       = rcsi_mean,
+#     `HHS`        = hhs_mean
+#   ) %>%
+#   arrange(year) # Ensure years are sorted before pivoting
+# 
+# unique_years <- sort(unique(tableA7_long$year))
+# n_years      <- length(unique_years)
+# indicator_list <- c("Phase 3+%", "FCS", "HDDS", "rCSI", "HHS")
+# 
+# # 2. Pivot wider with Indicator_Year format
+# tableA7_wide <- tableA7_long %>%
+#   pivot_wider(
+#     names_from = year,
+#     values_from = all_of(indicator_list),
+#     names_glue = "{.value}_{year}"
+#   )
+# 
+# # 3. Create the Excel Workbook
+# excel_file <- file.path(finalTablesFolder, "TableA7_temporal_severity.xlsx")
+# wb <- createWorkbook()
+# addWorksheet(wb, "Table A7")
+# 
+# # Prepare Header Rows
+# raw_cols <- colnames(tableA7_wide)
+# top_row  <- sub("_.*", "", raw_cols) 
+# sub_row  <- sub(".*_", "", raw_cols) 
+# 
+# top_row[1] <- "Country"
+# sub_row[1] <- "Country"
+# 
+# # Write headers and data
+# writeData(wb, "Table A7", x = t(top_row), startRow = 1, colNames = FALSE)
+# writeData(wb, "Table A7", x = t(sub_row), startRow = 2, colNames = FALSE)
+# writeData(wb, "Table A7", x = tableA7_wide, startRow = 3, colNames = FALSE)
+# 
+# # 4. Merging Logic
+# # Vertical merge for Country
+# mergeCells(wb, "Table A7", cols = 1, rows = 1:2)
+# 
+# # Horizontal merge for each Indicator over the sorted years
+# curr_col <- 2
+# for (i in 1:length(indicator_list)) {
+#   end_col <- curr_col + n_years - 1
+#   mergeCells(wb, "Table A7", cols = curr_col:end_col, rows = 1)
+#   curr_col <- end_col + 1
+# }
+# 
+# # 5. Styling (Matching your write_paper_table style exactly)
+# header_style <- createStyle(
+#   textDecoration = "bold", halign = "center", valign = "center",
+#   fontName = "Times New Roman", fontSize = 9, fgFill = "#BDD7EE",
+#   border = "TopBottomLeftRight", borderStyle = "thin"
+# )
+# 
+# body_style <- createStyle(
+#   halign = "center", valign = "center", fontName = "Times New Roman", fontSize = 9,
+#   border = "TopBottomLeftRight", borderStyle = "thin"
+# )
+# 
+# # Apply Styles
+# addStyle(wb, "Table A7", style = header_style, rows = 1:2, cols = 1:ncol(tableA7_wide), gridExpand = TRUE)
+# addStyle(wb, "Table A7", style = body_style, rows = 3:(nrow(tableA7_wide) + 2), cols = 2:ncol(tableA7_wide), gridExpand = TRUE)
+# addStyle(wb, "Table A7", style = createStyle(halign = "left", fontName = "Times New Roman", fontSize = 9, border = "TopBottomLeftRight"), 
+#          rows = 3:(nrow(tableA7_wide) + 2), cols = 1, gridExpand = TRUE)
+# 
+# # 6. Column Widths
+# setColWidths(wb, "Table A7", cols = 1, widths = 20)
+# setColWidths(wb, "Table A7", cols = 2:ncol(tableA7_wide), widths = 10)
+# 
+# # Save
+# saveWorkbook(wb, excel_file, overwrite = TRUE)
 
-# Step 2: filter IPC_DIEM to selected analyses, compute Phase 3+% by country-year.
-ipc_summary <- IPC_DIEM %>%
-  mutate(year = year(IPC_analysis_date)) %>%
-  semi_join(selected_analyses, by = c("iso3", "IPC_analysis_date")) %>%
-  group_by(iso3, year) %>%
-  summarise(
-    n_districts    = n(),
-    pct_phase3plus = round(
-      100 * sum(area_phase3_population + area_phase4_population + area_phase5_population, na.rm = TRUE) /
-            sum(area_phase1_population + area_phase2_population + area_phase3_population +
-                area_phase4_population + area_phase5_population, na.rm = TRUE),
-      1),
-    .groups = "drop"
-  )
-
-# Step 3: filter IPCDIEM_hh to selected analyses, deduplicate, compute indicator means.
-hh_summary <- IPCDIEM_hh %>%
-  select(iso3, country_analysis_date, OBJECTID, survey_date, fcs, hdds_score, rcsi_score, hhs) %>%
-  semi_join(selected_analyses, by = c("iso3", "country_analysis_date" = "IPC_analysis_date")) %>%
-  distinct(iso3, OBJECTID, survey_date, .keep_all = TRUE) %>%
-  mutate(year = year(country_analysis_date)) %>%
-  group_by(iso3, year) %>%
-  summarise(
-    fcs_mean  = round(mean(fcs,        na.rm = TRUE), 1),
-    hdds_mean = round(mean(hdds_score, na.rm = TRUE), 1),
-    rcsi_mean = round(mean(rcsi_score, na.rm = TRUE), 1),
-    hhs_mean  = round(mean(hhs,        na.rm = TRUE), 1),
-    .groups = "drop"
-  )
-
-# Step 4: join the two summaries and format.
-tableA7 <- ipc_summary %>%
-  left_join(hh_summary, by = c("iso3", "year")) %>%
-  mutate(country = countrycode(iso3, "iso3c", "country.name")) %>%
-  arrange(country, year) %>%
-  group_by(iso3) %>%
-  mutate(most_recent = if_else(year == max(year), "*", "")) %>%
-  ungroup() %>%
-  mutate(pct_phase3plus = round(pct_phase3plus, 1)) %>%
-  select(
-    Country                          = country,
-    Year                             = year,
-    `Matched districts`              = n_districts,
-    `Phase 3+% (pop. weighted)`      = pct_phase3plus,
-    `FCS mean`                       = fcs_mean,
-    `HDDS mean`                      = hdds_mean,
-    `rCSI mean`                      = rcsi_mean,
-    `HHS mean`                       = hhs_mean,
-    `Most recent`                    = most_recent
-  )
-
-tableA7 %>%
-  gt() %>%
-  tab_header(title = "Table A7: IPC Phase 3+ share and indicator means by country and year (matched sample)") %>%
-  tab_footnote(footnote = "Phase 3+% is population-weighted across matched districts. Indicator means are household-level means from matched DIEM data. * = most recent IPC analysis year for that country.")
-
-write_paper_table(
-  tableA7,
-  file.path(finalTablesFolder, "TableA7_temporal_severity_by_country_year.xlsx"),
-  footnote = "Phase 3+% is population-weighted across matched districts. Indicator means are household-level means from matched DIEM data. * = most recent IPC analysis year for that country."
-)
+# # Step 4: join the two summaries and format.
+# tableA7 <- ipc_summary %>%
+#   left_join(hh_summary, by = c("iso3", "year")) %>%
+#   mutate(country = countrycode(iso3, "iso3c", "country.name")) %>%
+#   arrange(country, year) %>%
+#   group_by(iso3) %>%
+#   mutate(most_recent = if_else(year == max(year), "*", "")) %>%
+#   ungroup() %>%
+#   mutate(pct_phase3plus = round(pct_phase3plus, 1)) %>%
+#   select(
+#     Country                          = country,
+#     Year                             = year,
+#     `Matched districts`              = n_districts,
+#     `Phase 3+% (pop. weighted)`      = pct_phase3plus,
+#     `FCS mean`                       = fcs_mean,
+#     `HDDS mean`                      = hdds_mean,
+#     `rCSI mean`                      = rcsi_mean,
+#     `HHS mean`                       = hhs_mean,
+#     `Most recent`                    = most_recent
+#   )
+# 
+# tableA7 %>%
+#   gt() %>%
+#   tab_header(title = "Table A7: IPC Phase 3+ share and indicator means by country and year (matched sample)") %>%
+#   tab_footnote(footnote = "Phase 3+% is population-weighted across matched districts. Indicator means are household-level means from matched DIEM data. * = most recent IPC analysis year for that country.")
+# 
+# write_paper_table(
+#   tableA7,
+#   file.path(finalTablesFolder, "TableA7_temporal_severity_by_country_year.xlsx"),
+#   footnote = "Phase 3+% is population-weighted across matched districts. Indicator means are household-level means from matched DIEM data. * = most recent IPC analysis year for that country."
+# )
 
 
 # <br>
@@ -4444,6 +4530,88 @@ summary(model_direct)
 model_direct <- lm(area_p3plus_percentage ~  rcsi_score_wmean,
                    data = dataForPCA)
 summary(model_direct)
+
+
+#### Table annex on fgt 1 values over time ####
+# Summarize FGT1 by country and year
+
+
+
+# ---- FGT1_Calculation for annex table - gaps over time  ----
+
+# 1. Calculate the normalized gap for each household
+# FGT1 = (Threshold - Value) / Threshold. If the household is "safe", gap is 0.
+countriesToInclude <- IPCDIEM_hh %>%
+  select(adm0_name) %>% distinct() %>% filter(adm0_name != "Lebanon") %>% pull() 
+DIEM_hh_gaps <- DIEM_FoodSecurity_HH %>%
+  filter(adm0_name %in% countriesToInclude) %>%
+  mutate(
+    gap_fcs  = pmax(0, (35 - fcs) / 35),
+    gap_hdds = pmax(0, (5 - hdds_score) / 5),
+    # For rCSI and HHS, higher values are worse, so the formula is flipped
+    gap_rcsi = pmax(0, (rcsi_score - 19) / 19),
+    gap_hhs  = pmax(0, (hhs - 2) / 2)
+  )
+
+# 2. Summarize by Country and Year
+fgt1_summary <- DIEM_hh_gaps %>%
+  mutate(year = year(survey_date)) %>%
+  group_by(adm0_name, year) %>%
+  summarise(
+    FCS  = mean(gap_fcs,  na.rm = TRUE),
+    HDDS = mean(gap_hdds, na.rm = TRUE),
+    rCSI = mean(gap_rcsi, na.rm = TRUE),
+    HHS  = mean(gap_hhs,  na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  # Clean NaNs to avoid the #NUM! errors in Excel
+  mutate(across(where(is.numeric), ~ifelse(is.nan(.), NA, round(., 3))))
+
+# 3. Create the Wide Table (Indicator_Year)
+indicator_list <- c("FCS", "HDDS", "rCSI", "HHS")
+unique_years   <- sort(unique(fgt1_summary$year))
+
+fgt1_wide <- fgt1_summary %>%
+  pivot_wider(
+    names_from = year,
+    values_from = all_of(indicator_list),
+    names_glue = "{.value}_{year}"
+  ) %>%
+  rename(Country = adm0_name)
+
+# Define path using your global folder
+excel_path <- file.path(finalTablesFolder, "TableA7_FGT1_Indicators_by_Year.xlsx")
+wb <- createWorkbook()
+addWorksheet(wb, "FGT1")
+
+# Create the two-row header labels
+header_top <- sub("_.*", "", colnames(fgt1_wide))
+header_bot <- sub(".*_", "", colnames(fgt1_wide))
+header_top[1] <- "Country"; header_bot[1] <- "Country"
+
+# Write data starting from row 3 to leave room for the double header
+writeData(wb, "FGT1", x = t(header_top), startRow = 1, colNames = FALSE)
+writeData(wb, "FGT1", x = t(header_bot), startRow = 2, colNames = FALSE)
+writeData(wb, "FGT1", x = fgt1_wide,      startRow = 3, colNames = FALSE)
+
+# Merging Logic
+mergeCells(wb, "FGT1", cols = 1, rows = 1:2) # Vertical merge for "Country"
+curr_col <- 2
+for (i in 1:4) {
+  end_col <- curr_col + length(unique_years) - 1
+  mergeCells(wb, "FGT1", cols = curr_col:end_col, rows = 1)
+  curr_col <- end_col + 1
+}
+
+# Apply your existing paper styles (Times New Roman, Size 9, Blue Header)
+header_style <- createStyle(
+  textDecoration = "bold", halign = "center", valign = "center",
+  fontName = "Times New Roman", fontSize = 9, fgFill = "#BDD7EE",
+  border = "TopBottomLeftRight", borderStyle = "thin"
+)
+addStyle(wb, "FGT1", style = header_style, rows = 1:2, cols = 1:ncol(fgt1_wide), gridExpand = TRUE)
+
+saveWorkbook(wb, excel_path, overwrite = TRUE)
 
 
 
